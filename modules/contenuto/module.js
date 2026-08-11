@@ -150,16 +150,31 @@ async function generateSeoWithGemini() {
         if (apiKey) {
             try {
                 if (out) { out.className = 'notice'; out.textContent = '⏳ Generazione bozza in corso con API Gemini...'; }
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
                 const promptText = `Sei un giornalista motorsport esperto di Formula 1 per FormulaPaddock.it. Scrivi un articolo SEO completo ed avvincente in italiano basato sul seguente testo/comunicato. Usa H1 per il titolo principale e vari H2 per i sottotitoli. Categoria: ${payload.category_name || 'Formula 1'}. Circuito: ${payload.circuito || 'Monza'}.\n\nTesto grezzo:\n${rawText}`;
                 
-                const geminiRes = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-                });
-                const geminiData = await geminiRes.json();
-                const genText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+                let genText = null;
+                let lastErr = '';
+
+                for (const model of modelsToTry) {
+                    try {
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                        const geminiRes = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                        });
+                        const geminiData = await geminiRes.json();
+                        if (geminiData?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                            genText = geminiData.candidates[0].content.parts[0].text;
+                            break;
+                        } else if (geminiData?.error?.message) {
+                            lastErr = geminiData.error.message;
+                        }
+                    } catch (e) {
+                        lastErr = e.message;
+                    }
+                }
                 
                 if (genText) {
                     let htmlDraft = genText
@@ -171,8 +186,8 @@ async function generateSeoWithGemini() {
                         .replace(/\n/g, '<br>');
                     htmlDraft = `<p>${htmlDraft}</p>`;
                     data = { draft_html: htmlDraft, source: 'gemini' };
-                } else if (geminiData?.error) {
-                    throw new Error(geminiData.error.message || 'Errore risposto da Gemini API');
+                } else if (lastErr) {
+                    throw new Error(lastErr);
                 }
             } catch (err) {
                 console.warn('Chiamata diretta API Gemini fallita, uso generatore strutturato:', err);
