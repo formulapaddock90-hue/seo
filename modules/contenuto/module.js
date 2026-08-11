@@ -140,12 +140,68 @@ async function generateSeoWithGemini() {
         internal_links: Array.isArray(state.internalLinks) ? state.internalLinks : []
     };
 
-    const data = await apiPost('api/gemini-generate.php', payload);
+    let data = {};
+    const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
+    
+    if (isStaticEnv || typeof window.apiPost !== 'function') {
+        const apiKey = (localStorage.getItem('gemini_api_key') || document.getElementById('settings-gemini-key')?.value || '').trim();
+        const out = document.getElementById('gemini-result');
+        
+        if (apiKey) {
+            try {
+                if (out) { out.className = 'notice'; out.textContent = '⏳ Generazione bozza in corso con API Gemini...'; }
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                const promptText = `Sei un giornalista motorsport esperto di Formula 1 per FormulaPaddock.it. Scrivi un articolo SEO completo ed avvincente in italiano basato sul seguente testo/comunicato. Usa H1 per il titolo principale e vari H2 per i sottotitoli. Categoria: ${payload.category_name || 'Formula 1'}. Circuito: ${payload.circuito || 'Monza'}.\n\nTesto grezzo:\n${rawText}`;
+                
+                const geminiRes = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                });
+                const geminiData = await geminiRes.json();
+                const genText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (genText) {
+                    let htmlDraft = genText
+                        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n\n/g, '</p><p>')
+                        .replace(/\n/g, '<br>');
+                    htmlDraft = `<p>${htmlDraft}</p>`;
+                    data = { draft_html: htmlDraft, source: 'gemini' };
+                } else if (geminiData?.error) {
+                    throw new Error(geminiData.error.message || 'Errore risposto da Gemini API');
+                }
+            } catch (err) {
+                console.warn('Chiamata diretta API Gemini fallita, uso generatore strutturato:', err);
+                if (out) { out.className = 'notice notice-warn'; out.textContent = `⚠️ Avviso API Gemini: ${err.message}. Generata bozza strutturata.`; }
+            }
+        }
+        
+        if (!data.draft_html) {
+            const firstLine = rawText.split('\n')[0].replace(/^[#*-\s]+/, '').substring(0, 90);
+            const titleText = firstLine || 'Formula 1: Analisi e Dettagli Ufficiali';
+            const paragraphs = rawText.split('\n\n').filter(p => p.trim().length > 0);
+            
+            let structuredHtml = `<h1>${titleText}</h1>\n<p><strong>FORMULAPADDOCK.IT</strong> — ${paragraphs[0] || rawText}</p>\n`;
+            structuredHtml += `<h2>Analisi Tecnica e Prestazioni sul Tracciato</h2>\n`;
+            structuredHtml += `<p>${paragraphs[1] || 'Le prestazioni registrate in pista confermano l\'elevata efficienza dei pacchetti aerodinamici introdotti per l\'evento. I tecnici hanno lavorato sul bilanciamento per ottimizzare il passo gara e la gestione del degrado gomme.'}</p>\n`;
+            structuredHtml += `<h2>Strategie Pirelli e Prospettive per la Sessione</h2>\n`;
+            structuredHtml += `<p>${paragraphs[2] || 'Le mescole messe a disposizione da Pirelli giocheranno un ruolo fondamentale nelle strategie di gara. La gestione dei pit stop ed il momento di undercut saranno determinanti per il risultato finale.'}</p>\n`;
+            
+            data = { draft_html: structuredHtml, source: 'fallback' };
+        }
+    } else {
+        data = await apiPost('api/gemini-generate.php', payload);
+    }
+
     const articleRaw = (data.draft_html || data.draft_text || '').trim();
 
     if (!articleRaw) {
         const out = document.getElementById('gemini-result');
-        if (out) { out.className = 'notice notice-warn'; out.textContent = 'Gemini non ha restituito contenuto. Verifica la chiave API in config/app.php.'; }
+        if (out) { out.className = 'notice notice-warn'; out.textContent = 'Gemini non ha restituito contenuto. Verifica la chiave API nelle Impostazioni ⚙️.'; }
         return;
     }
 
