@@ -330,6 +330,11 @@ function renderSettingsSites() {
 }
 
 async function loadSettingsData() {
+    if (isStaticEnv) {
+        const localKey = localStorage.getItem('gemini_api_key') || '';
+        const localUrl = localStorage.getItem('gemini_model_url') || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+        return { gemini_api_key: localKey, gemini_model_url: localUrl, sites: state.settingsSites || [] };
+    }
     const data = await apiGet('api/settings.php');
     state.settingsSites = Array.isArray(data.sites) ? data.sites : [];
     renderSettingsSites();
@@ -566,6 +571,9 @@ async function saveSettings() {
     const key = (input?.value || '').trim();
     const modelUrl = (urlInput?.value || '').trim();
 
+    if (key) localStorage.setItem('gemini_api_key', key);
+    if (modelUrl) localStorage.setItem('gemini_model_url', modelUrl);
+
     const payloadSites = state.settingsSites.map((site, index) => ({
         key: normalizeSiteKey(site.key, index),
         label: (site.label || '').trim(),
@@ -577,13 +585,22 @@ async function saveSettings() {
     })).filter(site => site.key && site.label && site.url);
 
     if (result) { result.className = ''; result.textContent = '⏳ Salvataggio...'; }
+
+    if (isStaticEnv) {
+        if (result) { result.className = 'notice notice-ok'; result.textContent = '✅ Impostazioni salvate nel browser.'; }
+        const notice = document.getElementById('gemini-key-notice');
+        if (notice) notice.style.display = key ? 'none' : '';
+        setTimeout(closeSettingsModal, 1000);
+        return;
+    }
+
     try {
         const data = await apiPost('api/settings.php', {
             gemini_api_key: key,
             gemini_model_url: modelUrl,
             sites: payloadSites
         });
-        if (data.ok) {
+        if (data.ok || data.success) {
             state.settingsSites = Array.isArray(data.sites) ? data.sites : payloadSites;
             renderSettingsSites();
             renderWpSiteOptions();
@@ -604,9 +621,36 @@ async function saveSettings() {
 
 async function testGeminiSettings() {
     const result = document.getElementById('settings-result');
+    const input = document.getElementById('settings-gemini-key');
+    const key = (input?.value || localStorage.getItem('gemini_api_key') || '').trim();
+
     if (result) {
         result.className = '';
         result.textContent = '⏳ Test connessione Gemini...';
+    }
+
+    if (isStaticEnv) {
+        if (!key) {
+            if (result) { result.className = 'notice notice-warn'; result.textContent = '❌ Inserisci una chiave API Gemini prima di eseguire il test.'; }
+            return;
+        }
+        try {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+            const testRes = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: 'Ping test' }] }] })
+            });
+            const testData = await testRes.json();
+            if (testData?.candidates?.[0]) {
+                if (result) { result.className = 'notice notice-ok'; result.textContent = '✅ Connessione Gemini valida!'; }
+            } else {
+                throw new Error(testData?.error?.message || 'Chiave non valida o quota superata.');
+            }
+        } catch (err) {
+            if (result) { result.className = 'notice notice-warn'; result.textContent = `❌ Test Gemini fallito: ${err.message}`; }
+        }
+        return;
     }
 
     try {
