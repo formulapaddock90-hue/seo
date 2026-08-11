@@ -64,6 +64,10 @@ function safeStringifyForLog(value) {
 
 async function flushClientConsoleLogs() {
     if (!clientConsoleLogState.queue.length) return;
+    if (location.hostname.includes('github.io') || location.protocol === 'file:') {
+        clientConsoleLogState.queue = [];
+        return;
+    }
 
     const entries = clientConsoleLogState.queue.splice(0, clientConsoleLogState.queue.length);
     try {
@@ -145,7 +149,12 @@ function activateTab(tabId) {
     updatePreview();
 }
 
+const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
+
 async function apiGet(path) {
+    if (isStaticEnv && (path.includes('.php') || path.endsWith('.php'))) {
+        return { success: true, categories: [], links: [], pages: [], post_types: [], images: [] };
+    }
     const res = await fetch(path);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -159,6 +168,9 @@ async function apiGet(path) {
 }
 
 async function apiPost(path, payload) {
+    if (isStaticEnv && (path.includes('.php') || path.endsWith('.php'))) {
+        return { success: true, message: 'Operazione eseguita in modalità statica client-side.' };
+    }
     const res = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
