@@ -152,18 +152,25 @@ async function generateSeoWithGemini() {
                 if (out) { out.className = 'notice'; out.textContent = '⏳ Generazione bozza in corso con API Gemini...'; }
                 const promptText = `Sei un giornalista motorsport esperto di Formula 1 per FormulaPaddock.it. Scrivi un articolo SEO completo ed avvincente in italiano basato sul seguente testo/comunicato. Usa H1 per il titolo principale e vari H2 per i sottotitoli. Categoria: ${payload.category_name || 'Formula 1'}. Circuito: ${payload.circuito || 'Monza'}.\n\nTesto grezzo:\n${rawText}`;
                 
-                const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+                const endpointsToTry = [
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+                    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
+                    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent'
+                ];
                 let genText = null;
                 let lastErr = '';
 
-                for (const model of modelsToTry) {
+                for (const endpoint of endpointsToTry) {
                     try {
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                        const apiUrl = `${endpoint}?key=${apiKey}`;
                         const geminiRes = await fetch(apiUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
                         });
+                        if (!geminiRes.ok) continue;
                         const geminiData = await geminiRes.json();
                         if (geminiData?.candidates?.[0]?.content?.parts?.[0]?.text) {
                             genText = geminiData.candidates[0].content.parts[0].text;

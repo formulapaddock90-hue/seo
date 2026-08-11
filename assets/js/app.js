@@ -658,17 +658,38 @@ async function testGeminiSettings() {
             return;
         }
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
-            const testRes = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: 'Ping test' }] }] })
-            });
-            const testData = await testRes.json();
-            if (testData?.candidates?.[0]) {
+            const testEndpoints = [
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+                'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent'
+            ];
+            let success = false;
+            let lastErr = '';
+
+            for (const endpoint of testEndpoints) {
+                try {
+                    const testRes = await fetch(`${endpoint}?key=${key}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: 'Ping test' }] }] })
+                    });
+                    if (!testRes.ok) continue;
+                    const testData = await testRes.json();
+                    if (testData?.candidates?.[0]) {
+                        success = true;
+                        break;
+                    } else if (testData?.error?.message) {
+                        lastErr = testData.error.message;
+                    }
+                } catch (e) {
+                    lastErr = e.message;
+                }
+            }
+
+            if (success) {
                 if (result) { result.className = 'notice notice-ok'; result.textContent = '✅ Connessione Gemini valida!'; }
             } else {
-                throw new Error(testData?.error?.message || 'Chiave non valida o quota superata.');
+                throw new Error(lastErr || 'Chiave non valida o quota superata.');
             }
         } catch (err) {
             if (result) { result.className = 'notice notice-warn'; result.textContent = `❌ Test Gemini fallito: ${err.message}`; }
