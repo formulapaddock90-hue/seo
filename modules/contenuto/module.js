@@ -152,7 +152,7 @@ async function generateSeoWithGemini() {
                 if (out) { out.className = 'notice'; out.textContent = '⏳ Generazione bozza in corso con API Gemini...'; }
                 const promptText = `Sei un giornalista motorsport esperto di Formula 1 per FormulaPaddock.it. Scrivi un articolo SEO completo ed avvincente in italiano basato sul seguente testo/comunicato. Usa H1 per il titolo principale e vari H2 per i sottotitoli. Categoria: ${payload.category_name || 'Formula 1'}. Circuito: ${payload.circuito || 'Monza'}.\n\nTesto grezzo:\n${rawText}`;
                 
-                const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+                const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
                 let genText = null;
                 let lastErr = '';
 

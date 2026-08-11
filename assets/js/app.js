@@ -331,7 +331,7 @@ function renderSettingsSites() {
 
 async function loadSettingsData() {
     const savedKey = localStorage.getItem('gemini_api_key') || '';
-    const savedUrl = localStorage.getItem('gemini_model_url') || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+    const savedUrl = localStorage.getItem('gemini_model_url') || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
     
     const notice = document.getElementById('gemini-key-notice');
     if (notice) notice.style.display = savedKey ? 'none' : '';
@@ -658,7 +658,7 @@ async function testGeminiSettings() {
             return;
         }
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
             const testRes = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

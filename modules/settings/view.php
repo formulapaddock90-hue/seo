@@ -12,7 +12,7 @@
         </label>
         <label>
             URL modello Gemini
-            <input type="text" id="settings-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" autocomplete="off">
+            <input type="text" id="settings-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent" autocomplete="off">
             <small>Cambia modello es. <code>gemini-2.5-flash</code>, <code>gemini-1.5-pro</code></small>
         </label>
 
