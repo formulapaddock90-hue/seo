@@ -330,16 +330,39 @@ function renderSettingsSites() {
 }
 
 async function loadSettingsData() {
+    const savedKey = localStorage.getItem('gemini_api_key') || '';
+    const savedUrl = localStorage.getItem('gemini_model_url') || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+    
+    const notice = document.getElementById('gemini-key-notice');
+    if (notice) notice.style.display = savedKey ? 'none' : '';
+
+    const input = document.getElementById('settings-gemini-key');
+    const urlInput = document.getElementById('settings-gemini-url');
+    if (input && savedKey) input.value = savedKey;
+    if (urlInput && savedUrl) urlInput.value = savedUrl;
+
     if (isStaticEnv) {
-        const localKey = localStorage.getItem('gemini_api_key') || '';
-        const localUrl = localStorage.getItem('gemini_model_url') || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-        return { gemini_api_key: localKey, gemini_model_url: localUrl, sites: state.settingsSites || [] };
+        return { gemini_api_key: savedKey, gemini_model_url: savedUrl, sites: state.settingsSites || [] };
     }
-    const data = await apiGet('api/settings.php');
-    state.settingsSites = Array.isArray(data.sites) ? data.sites : [];
-    renderSettingsSites();
-    renderWpSiteOptions();
-    return data;
+    
+    try {
+        const data = await apiGet('api/settings.php');
+        state.settingsSites = Array.isArray(data.sites) ? data.sites : [];
+        renderSettingsSites();
+        renderWpSiteOptions();
+        const finalKey = savedKey || data.gemini_api_key || '';
+        const finalUrl = savedUrl || data.gemini_model_url || '';
+        if (input && finalKey) input.value = finalKey;
+        if (urlInput && finalUrl) urlInput.value = finalUrl;
+        if (notice) notice.style.display = finalKey ? 'none' : '';
+        return {
+            ...data,
+            gemini_api_key: finalKey,
+            gemini_model_url: finalUrl
+        };
+    } catch {
+        return { gemini_api_key: savedKey, gemini_model_url: savedUrl };
+    }
 }
 
 function escapeHtml(value) {

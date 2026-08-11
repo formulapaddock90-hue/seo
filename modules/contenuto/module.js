@@ -243,14 +243,6 @@ async function generateSeoWithGemini() {
 }
 
 async function loadArticlesList() {
-    const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
-    if (isStaticEnv) {
-        try {
-            state.articles = JSON.parse(localStorage.getItem('saved_articles') || '[]');
-        } catch { state.articles = []; }
-        renderArticlesList();
-        return;
-    }
     const data = await apiGet('api/articles.php?action=list');
     state.articles = data.articles || [];
     renderArticlesList();
@@ -341,37 +333,6 @@ async function saveGeneratedArticle(options = {}) {
         paragraph_chart_map: state.paragraphChartMap || {}
     };
 
-    const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
-    
-    if (isStaticEnv) {
-        const articleId = state.selectedArticleId || `art_${Date.now()}`;
-        const article = {
-            id: articleId,
-            title,
-            content,
-            category,
-            updated_at: new Date().toISOString()
-        };
-        state.selectedArticleId = articleId;
-        state.lastAutoSaveSignature = signature;
-
-        try {
-            const existing = JSON.parse(localStorage.getItem('saved_articles') || '[]');
-            const idx = existing.findIndex(a => a.id === articleId);
-            if (idx >= 0) existing[idx] = article;
-            else existing.unshift(article);
-            localStorage.setItem('saved_articles', JSON.stringify(existing));
-            state.articles = existing;
-            renderArticlesList();
-        } catch (_) {}
-
-        if (!silent) {
-            const out = document.getElementById('publish-result') || document.getElementById('gemini-result');
-            if (out) { out.className = 'notice notice-ok'; out.textContent = autosave ? 'Articolo salvato automaticamente nel browser.' : 'Articolo salvato in archivio nel browser.'; }
-        }
-        return article;
-    }
-
     const saved = await apiPost('api/articles.php?action=save', payload);
     const article = saved.article || null;
     if (!article) throw new Error('Salvataggio non riuscito');
@@ -381,8 +342,8 @@ async function saveGeneratedArticle(options = {}) {
     await loadArticlesList();
 
     if (!silent) {
-        const out = document.getElementById('publish-result') || document.getElementById('gemini-result');
-        if (out) { out.className = 'notice notice-ok'; out.textContent = autosave ? 'Articolo salvato automaticamente.' : 'Articolo salvato in archivio.'; }
+        const out = document.getElementById('publish-result');
+        if (out) out.textContent = autosave ? 'Articolo salvato automaticamente.' : 'Articolo salvato in archivio.';
     }
 
     return article;
