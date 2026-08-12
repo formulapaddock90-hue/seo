@@ -1,0 +1,141 @@
+<?php
+
+require __DIR__ . '/bootstrap.php';
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+    jsonResponse(['ok' => false, 'message' => 'Metodo non supportato'], 405);
+}
+
+$raw = file_get_contents('php://input') ?: '';
+$payload = json_decode($raw, true);
+if (!is_array($payload)) {
+    jsonResponse(['ok' => false, 'message' => 'Payload non valido'], 400);
+}
+
+$teams = $payload['teams'] ?? [];
+if (!is_array($teams) || $teams === []) {
+    jsonResponse(['ok' => false, 'message' => 'Dati team mancanti'], 400);
+}
+
+$rows = [];
+foreach ($teams as $team) {
+    if (!is_array($team)) continue;
+    $name = trim((string)($team['name'] ?? ''));
+    if ($name === '') continue;
+
+    $drivers = $team['drivers'] ?? [];
+    $driverNames = [];
+    if (is_array($drivers)) {
+        foreach ($drivers as $driver) {
+            if (!is_array($driver)) continue;
+            $fullName = trim((string)(($driver['first_name'] ?? '') . ' ' . ($driver['last_name'] ?? '')));
+            if ($fullName !== '') $driverNames[] = $fullName;
+        }
+    }
+
+    $comment = trim((string)($team['comment'] ?? ''));
+    $image = trim((string)($team['image'] ?? ''));
+
+    $rows[] = [
+        'name' => $name,
+        'drivers' => $driverNames,
+        'comment' => $comment,
+        'image' => $image,
+    ];
+}
+
+if ($rows === []) {
+    jsonResponse(['ok' => false, 'message' => 'Nessun team valido da elaborare'], 400);
+}
+
+$teamText = [];
+foreach ($rows as $row) {
+    $teamText[] = implode("\n", [
+        'Team: ' . $row['name'],
+        'Piloti: ' . (!empty($row['drivers']) ? implode(', ', $row['drivers']) : 'n.d.'),
+        'Commento utente: ' . ($row['comment'] !== '' ? $row['comment'] : 'nessun commento'),
+        'Immagine team: ' . ($row['image'] !== '' ? $row['image'] : 'nessuna immagine'),
+    ]);
+}
+
+$sourceText = implode("\n\n", $teamText);
+
+$prompt = "Sei un SEO copywriter italiano specializzato in Formula 1. "
+    . "Genera un articolo SEO completo in HTML (solo HTML, niente markdown) basato sui dati team post-gara. "
+    . "Regole: un solo <h1>, usa <h2> per sezioni per ogni team, integra i commenti utente se presenti, "
+    . "scrivi in stile giornalistico sportivo, paragrafi brevi, tono professionale. "
+    . "Aggiungi una meta-description come primo paragrafo in corsivo. "
+    . "Se ci sono URL immagine, inserisci tag <img> con alt descrittivo nel team corrispondente. "
+    . "Output HTML pronto per WordPress: NON includere tag <meta>, <title>, <html>, <head> o <body>; inizia direttamente dall'<h1>. "
+    . "Chiudi con conclusioni SEO orientate alla keyword 'analisi post gara Formula 1'.\n\n"
+    . "DATI TEAM:\n" . $sourceText;
+
+$apiKey = trim((string)($appConfig['gemini_api_key'] ?? ''));
+if ($apiKey === '') {
+    jsonResponse(['error' => 'API key non configurata'], 400);
+}
+
+$modelUrl = trim((string)($appConfig['gemini_model_url'] ?? ''));
+if ($modelUrl === '') {
+    jsonResponse(['error' => 'URL modello non configurato'], 400);
+}
+
+$request = [
+    'contents' => [
+        [
+            'parts' => [
+                ['text' => $prompt],
+            ],
+        ],
+    ],
+    'generationConfig' => [
+        'temperature' => 0.7,
+        'topP' => 0.9,
+        'maxOutputTokens' => 8192,
+    ],
+];
+
+$res = postJson($modelUrl . '?key=' . urlencode($apiKey), $request);
+if (empty($res['ok']) || (int)($res['status'] ?? 0) < 200 || (int)($res['status'] ?? 0) >= 400) {
+    $status = (int)($res['status'] ?? 0);
+    $errorCode = $res['json']['error']['code'] ?? null;
+    $errorMessage = $res['json']['error']['message'] ?? $res['error'] ?? 'Errore sconosciuto';
+    
+    $errorMsg = 'Errore nella risposta dal modello';
+    if ($errorCode === 429) {
+        $errorMsg = 'Quota API esaurita - Riprovare più tardi';
+    } elseif ($status >= 500) {
+        $errorMsg = 'Servizi Gemini temporaneamente non disponibili';
+    } elseif ($status === 404) {
+        $errorMsg = 'Modello non configurato correttamente';
+    }
+    
+    jsonResponse(['error' => $errorMsg, 'details' => $errorMessage], $status > 0 ? $status : 502);
+}
+
+$text = '';
+$candidates = $res['json']['candidates'] ?? [];
+if (is_array($candidates)) {
+    foreach ($candidates as $candidate) {
+        $parts = $candidate['content']['parts'] ?? [];
+        if (!is_array($parts)) continue;
+        foreach ($parts as $part) {
+            if (isset($part['text'])) {
+                $text .= (string)$part['text'];
+            }
+        }
+    }
+}
+
+$text = trim($text);
+if ($text === '') {
+    jsonResponse(['error' => 'Nessun testo generato'], 500);
+}
+
+$text = stripPageMetaTags($text);
+
+jsonResponse([
+    'ok' => true,
+    'source' => 'gemini',
+    'draft_html' => $text,
+]);

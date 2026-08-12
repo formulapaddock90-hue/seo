@@ -1,0 +1,28 @@
+# Log & Execution binaries
+*.log
+*.txt
+cloudflared.exe
+
+# Secret Credentials & Tokens
+google-service-account.json
+oauth-token*
+oauth-client*
+threads-token*
+service-account.json
+*.pem
+social/credentials/*
+!social/credentials/.gitkeep
+api/social/credentials/*
+!api/social/credentials/.gitkeep
+
+# Temporary Storage & Exports
+storage/*
+!storage/.gitkeep
+exports/*
+!exports/.gitkeep
+uploads/*
+!uploads/.gitkeep
+api/social/output/*
+!api/social/output/.gitkeep
+social/output/*
+!social/output/.gitkeep

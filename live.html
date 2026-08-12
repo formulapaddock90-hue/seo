@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Timing F1 | Telemetria in Diretta - Formula Paddock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/wp-content/plugins/undercut-f1-standings/assets/dashboard.css?v=2.0">
+    <style>
+        :root {
+            --f1-red: #e10600;
+            --f1-bg-main: #0b0f19;
+            --f1-bg-surface: #151926;
+            --f1-border: #282e3f;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--f1-bg-main);
+            color: #ffffff;
+            font-family: 'Titillium Web', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+
+        .standalone-wrapper {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 20px 16px;
+        }
+
+        /* Top Brand Header */
+        .f1-brand-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #11141e;
+            border: 1px solid var(--f1-border);
+            border-left: 5px solid var(--f1-red);
+            border-radius: 10px;
+            padding: 16px 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .f1-brand-badge {
+            background: var(--f1-red);
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 18px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            transform: skewX(-12deg);
+            display: inline-block;
+        }
+
+        .f1-brand-badge span {
+            display: inline-block;
+            transform: skewX(12deg);
+        }
+
+        .f1-brand-title h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .f1-brand-title span {
+            color: #94a3b8;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Radar Offline Banner */
+        .f1-offline-banner {
+            background: radial-gradient(circle at center, #1a1a28 0%, #0d0e15 100%);
+            border: 1px solid var(--f1-border);
+            border-radius: 12px;
+            padding: 35px 20px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .f1-radar-graphic {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 20px;
+        }
+
+        .f1-radar-circle {
+            position: absolute;
+            border: 1.5px solid rgba(225, 6, 0, 0.4);
+            border-radius: 50%;
+            animation: f1-radar-expand 3s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+        }
+
+        .f1-radar-circle.c1 { width: 35px; height: 35px; animation-delay: 0s; }
+        .f1-radar-circle.c2 { width: 60px; height: 60px; animation-delay: 0.8s; }
+        .f1-radar-circle.c3 { width: 90px; height: 90px; animation-delay: 1.6s; }
+
+        @keyframes f1-radar-expand {
+            0% { transform: scale(0.3); opacity: 1; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        .f1-radar-icon {
+            position: relative;
+            z-index: 2;
+            width: 44px;
+            height: 44px;
+            background: #11141e;
+            border: 2px solid var(--f1-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--f1-red);
+            box-shadow: 0 0 15px rgba(225, 6, 0, 0.4);
+        }
+
+        .f1-offline-title {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin: 0 0 10px 0;
+        }
+
+        .f1-offline-subtitle {
+            color: #94a3b8;
+            font-size: 13.5px;
+            line-height: 1.5;
+            max-width: 560px;
+            margin: 0 auto 20px;
+        }
+
+        .f1-btn-retry {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--f1-red);
+            color: #ffffff;
+            border: none;
+            padding: 12px 28px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transform: skewX(-10deg);
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .f1-btn-retry span { transform: skewX(10deg); }
+        .f1-btn-retry:hover { background: #ff1801; transform: skewX(-10deg) translateY(-2deg); }
+
+        .f1-schedule-box {
+            margin-top: 25px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: left;
+        }
+
+        .f1-schedule-box h4 {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 0 0 12px 0;
+        }
+
+        .f1-schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .f1-schedule-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 3px solid var(--f1-red);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .f1-schedule-item .day { display: block; color: #94a3b8; font-size: 10px; text-transform: uppercase; }
+        .f1-schedule-item .session { font-weight: 700; color: #ffffff; margin-top: 2px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="standalone-wrapper">
+        <!-- TOP BRAND HEADER -->
+        <div class="f1-brand-header">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div class="f1-brand-badge"><span>F1</span></div>
+                <div class="f1-brand-title">
+                    <h1 id="session-title">F1 Live Timing & Telemetria</h1>
+                    <span id="session-subtitle">FORMULA PADDOCK · DIRECT STREAM</span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button id="popoutBtn" class="popout-btn" title="Apri in nuova finestra per Multi-Schermo">🪟 Multi-Schermo</button>
+                <span id="track-status" class="badge neutral">Nessun dato</span>
+                <span id="clock-status" class="badge green">Clock live</span>
+            </div>
+        </div>
+
+        <!-- RADAR OFFLINE BANNER -->
+        <div id="f1-offline-banner" class="f1-offline-banner">
+            <div class="f1-radar-graphic">
+                <div class="f1-radar-circle c1"></div>
+                <div class="f1-radar-circle c2"></div>
+                <div class="f1-radar-circle c3"></div>
+                <div class="f1-radar-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M4.9 19.1C1.9 16.1 1.9 11.3 4.9 8.3"></path>
+                        <path d="M7.8 16.2C5.6 14 5.6 10.4 7.8 8.2"></path>
+                        <circle cx="12" cy="12" r="2"></circle>
+                        <path d="M16.2 7.8c2.2 2.2 2.2 5.8 0 8"></path>
+                        <path d="M19.1 4.9c3 3 3 7.8 0 10.8"></path>
+                    </svg>
+                </div>
+            </div>
+            <h2 class="f1-offline-title">OFFLINE - NO SESSION ACTIVE</h2>
+            <p class="f1-offline-subtitle">La telemetria F1 live non è al momento in trasmissione. Si attiva automaticamente durante le sessioni ufficiali. Consulta qui sotto la classifica ed i dati della sessione corrente.</p>
+            <button class="f1-btn-retry" onclick="window.location.reload();">
+                <span>RIPROVA CONNESSIONE</span>
+            </button>
+            <div class="f1-schedule-box">
+                <h4>PROGRAMMAZIONE TRASMISSIONI TELEMETRIA F1</h4>
+                <div class="f1-schedule-grid">
+                    <div class="f1-schedule-item"><span class="day">VENERDÌ</span><span class="session">FP1 & FP2</span></div>
+                    <div class="f1-schedule-item"><span class="day">SABATO</span><span class="session">FP3 & QUALIFICHE</span></div>
+                    <div class="f1-schedule-item"><span class="day">DOMENICA</span><span class="session">GRAN PREMIO (GARA LIVE)</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARDS METEO & SESSION INFO -->
+        <section class="cards" aria-label="Riepilogo sessione">
+            <article class="card">
+                <span class="label">Meeting</span>
+                <strong id="meeting-name">-</strong>
+                <span id="circuit-name" class="muted">-</span>
+            </article>
+            <article class="card">
+                <span class="label">Meteo</span>
+                <strong id="air-temp">-</strong>
+                <span id="track-temp" class="muted">-</span>
+            </article>
+            <article class="card">
+                <span class="label">Vento / Umidità</span>
+                <strong id="wind-speed">-</strong>
+                <span id="humidity" class="muted">-</span>
+            </article>
+            <article class="card">
+                <span class="label">Aggiornamento</span>
+                <strong id="updated-at">-</strong>
+                <span id="session-running" class="muted">-</span>
+            </article>
+        </section>
+
+        <!-- DASHBOARD UNDERCUTF1 LAYOUT -->
+        <div class="dashboard-shell">
+            <aside class="sidebar panel">
+                <div class="panel-heading">
+                    <h2>Classifica live</h2>
+                    <span id="driver-count" class="muted">0 piloti</span>
+                </div>
+                <p id="selection-hint" class="muted compact-hint">Clicca sui piloti per confrontare i tempi giro.</p>
+                <div class="table-wrap sidebar-table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Pilota</th>
+                                <th>Gomma</th>
+                                <th>Settori</th>
+                                <th>Gap</th>
+                                <th>Giro / Best</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timing-body">
+                            <tr><td colspan="6" class="empty">In attesa dei dati...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </aside>
+
+            <div class="content-area">
+                <section class="analytics">
+                    <div class="tabs">
+                        <button class="tab-button active" data-tab="gruppo-1">Gruppo 1</button>
+                        <button class="tab-button" data-tab="gruppo-2">Gruppo 2</button>
+                        <button class="tab-button" data-tab="gruppo-3">Gruppo 3</button>
+                        <button class="tab-button" data-tab="mappa-settori">Mappa Settori</button>
+                        <button class="tab-button" data-tab="matrice-stint">Matrice Stint</button>
+                        <button class="tab-button" data-tab="race-control">Race control</button>
+                    </div>
+
+                    <div class="tab-content" id="gruppo-1">
+                        <div class="analytics-grid">
+                            <section class="panel">
+                                <div class="panel-heading">
+                                    <h2>Tempi giro piloti del gruppo</h2>
+                                    <span id="selected-drivers-g1" class="muted">Tutti i piloti</span>
+                                </div>
+                                <div id="lap-time-chart-g1" class="chart empty">In attesa dati tempi giro</div>
+                            </section>
+                            <section class="panel">
+                                <div class="panel-heading">
+                                    <h2>Confronto primo ↔ ultimo giro</h2>
+                                    <span class="muted">Delta e stint</span>
+                                </div>
+                                <div id="lap-stats-table-g1" class="chart empty">Seleziona almeno un pilota</div>
+                            </section>
+                        </div>
+                        <section class="panel sector-ranking-panel">
+                            <div class="panel-heading">
+                                <h2>Classifica migliori giri per settore</h2>
+                                <span class="muted">Gruppo 1</span>
+                            </div>
+                            <div id="sector-ranking-table-g1" class="compound-ranking-table empty">Dati settore</div>
+                        </section>
+                    </div>
+
+                    <div class="tab-content hidden" id="gruppo-2">
+                        <div class="analytics-grid">
+                            <section class="panel">
+                                <div class="panel-heading">
+                                    <h2>Tempi giro piloti del gruppo</h2>
+                                    <span id="selected-drivers-g2" class="muted">Tutti i piloti</span>
+                                </div>
+                                <div id="lap-time-chart-g2" class="chart empty">In attesa dati tempi giro</div>
+                            </section>
+                            <section class="panel">
+                                <div class="panel-heading">
+                                    <h2>Confronto primo ↔ ultimo giro</h2>
+                                    <span class="muted">Delta e stint</span>
+                                </div>
+                                <div id="lap-stats-table-g2" class="chart empty">Seleziona almeno un pilota</div>
+                            </section>
+                        </div>
+                    </div>
+
+                    <div class="tab-content hidden" id="gruppo-3">
+                        <div class="analytics-grid">
+                            <section class="panel">
+                                <div class="panel-heading">
+                                    <h2>Tempi giro piloti del gruppo</h2>
+                                    <span id="selected-drivers-g3" class="muted">Tutti i piloti</span>
+                                </div>
+                                <div id="lap-time-chart-g3" class="chart empty">In attesa dati tempi giro</div>
+                            </section>
+                        </div>
+                    </div>
+
+                    <div class="tab-content hidden" id="mappa-settori">
+                        <section class="panel">
+                            <div class="panel-heading">
+                                <h2>Mappa di calore dei settori</h2>
+                                <span class="muted">Live Sector Pace Heatmap</span>
+                            </div>
+                            <div id="sector-heatmap-container" class="sector-heatmap-wrap empty">In attesa dati settori...</div>
+                        </section>
+                    </div>
+
+                    <div class="tab-content hidden" id="matrice-stint">
+                        <section class="panel">
+                            <div class="panel-heading">
+                                <h2>Matrice di confronto stint & gomma</h2>
+                                <span class="muted">Stint Analysis</span>
+                            </div>
+                            <div id="stint-matrix-container" class="stint-matrix-wrap empty">In attesa dati stint...</div>
+                        </section>
+                    </div>
+
+                    <div class="tab-content hidden" id="race-control">
+                        <section class="panel">
+                            <div class="panel-heading">
+                                <h2>Race control</h2>
+                                <span id="rc-count" class="muted">Messaggi</span>
+                            </div>
+                            <div id="rc-timeline" class="rc-timeline empty">Nessun messaggio disponibile</div>
+                        </section>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="/wp-content/plugins/undercut-f1-standings/assets/dashboard.js?v=2.0" defer></script>
+</body>
+</html>
