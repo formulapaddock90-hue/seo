@@ -197,6 +197,56 @@ function renderH2Cards() {
     });
 }
 
+function saveCustomImagesToStorage() {
+    try {
+        const localImgs = (state.mediaImages || []).filter(img => img && img.token && img.token.startsWith('img_local_'));
+        localStorage.setItem('fp_custom_images', JSON.stringify(localImgs));
+    } catch(e) {
+        console.warn('Impossibile salvare immagini in localStorage:', e);
+    }
+}
+
+function loadCustomImagesFromStorage() {
+    try {
+        const stored = localStorage.getItem('fp_custom_images');
+        if (!stored) return;
+        const localImgs = JSON.parse(stored);
+        if (Array.isArray(localImgs) && localImgs.length > 0) {
+            const existingTokens = new Set((state.mediaImages || []).map(x => x.token));
+            localImgs.forEach(img => {
+                if (img && img.token && !existingTokens.has(img.token)) {
+                    state.mediaImages.unshift(img);
+                }
+            });
+        }
+    } catch(e) {
+        console.warn('Impossibile caricare immagini da localStorage:', e);
+    }
+    ensureCategoriesFromImages();
+}
+
+function ensureCategoriesFromImages() {
+    if (!state.mediaImages || !state.mediaImages.length) return;
+    const catMap = {};
+    state.mediaImages.forEach(img => {
+        const folder = img.folder || 'Upload PC';
+        const cat = img.category || 'Generale';
+        const key = `${folder}/${cat}`;
+        if (!catMap[key]) {
+            catMap[key] = { folder, category: cat, files_count: 0, has_images: true };
+        }
+        catMap[key].files_count++;
+    });
+    if (!state.mediaCategories) state.mediaCategories = [];
+    const existingKeys = new Set(state.mediaCategories.map(c => `${c.folder}/${c.category}`));
+    Object.values(catMap).forEach(c => {
+        const k = `${c.folder}/${c.category}`;
+        if (!existingKeys.has(k)) {
+            state.mediaCategories.push(c);
+        }
+    });
+}
+
 function openImgPickerModal(h2Idx) {
     state.imgPickerMode = 'h2';
     state.postgaraPickerTeamIdx = null;
@@ -209,8 +259,17 @@ function openImgPickerModal(h2Idx) {
     const label = document.getElementById('img-picker-h2-label');
     if (label) label.textContent = `H2 ${h2Idx + 1}: ${state.reviewH2Titles[h2Idx] || ''}`;
 
+    ensureCategoriesFromImages();
+
+    if (!state.imgPickerFolderKey && state.mediaCategories && state.mediaCategories.length > 0) {
+        const firstCat = state.mediaCategories.find(c => c.has_images) || state.mediaCategories[0];
+        if (firstCat) {
+            state.imgPickerFolderKey = mediaFolderKey(firstCat.folder, firstCat.category);
+        }
+    }
+
     renderImgPickerFolders();
-    renderImgPickerGallery('');
+    renderImgPickerGallery(state.imgPickerFolderKey || '');
 
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
@@ -421,9 +480,20 @@ async function renderPostGaraUploadsPicker(subfolder = '') {
 }
 
 async function loadMediaData() {
-    const data = await apiGet('api/media.php');
-    state.mediaImages = data.images || [];
-    state.mediaCategories = data.categories || [];
+    try {
+        const data = await apiGet('api/media.php');
+        if (data && Array.isArray(data.images) && data.images.length > 0) {
+            state.mediaImages = data.images;
+        }
+        if (data && Array.isArray(data.categories) && data.categories.length > 0) {
+            state.mediaCategories = data.categories;
+        }
+    } catch (e) {
+        console.warn('apiGet media.php non riuscito o ambiente statico:', e);
+    }
+
+    loadCustomImagesFromStorage();
+    ensureCategoriesFromImages();
 
     renderH2Cards();
     renderLibraryGallery();
@@ -622,55 +692,108 @@ function closeFolderModal() {
     modal.setAttribute('aria-hidden', 'true');
 }
 
+async function uploadImagesLocally(files) {
+    const fileArray = Array.from(files);
+    const newMediaItems = [];
+
+    for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = e => reject(e);
+            reader.readAsDataURL(file);
+        }).catch(() => null);
+
+        if (!dataUrl) continue;
+
+        const token = 'img_local_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2,4);
+        const mediaObj = {
+            token: token,
+            file: file.name,
+            name: file.name,
+            url: dataUrl,
+            folder: 'Upload PC',
+            category: 'Locale'
+        };
+        newMediaItems.push(mediaObj);
+        state.mediaImages.unshift(mediaObj);
+    }
+
+    saveCustomImagesToStorage();
+    ensureCategoriesFromImages();
+
+    if (newMediaItems.length > 0) {
+        autoAssignImagesToH2s(newMediaItems.map(m => ({ url: m.url, name: m.file, token: m.token })));
+    }
+
+    renderH2Cards();
+    renderLibraryGallery();
+    updatePreview();
+
+    const out = document.getElementById('publish-result') || document.getElementById('mod-b-sync-status');
+    if (out) {
+        out.textContent = `✅ Caricate ${newMediaItems.length} immagini da PC/telefono. Assegnate agli H2.`;
+        if (out.style) out.style.color = '#27ae60';
+    }
+}
+
 async function uploadImagesToSelectedFolder(files) {
     if (!files || !files.length) return;
 
-    const fallbackFolder = state.browserCurrentSubfolder ? `uploads/${state.browserCurrentSubfolder}` : 'uploads';
-    const folder = state.browserSelectedFolder || fallbackFolder;
-
-    const formData = new FormData();
-    formData.append('folder', folder);
-    Array.from(files).forEach(file => formData.append('images[]', file));
-
-    const res = await fetch('api/file-browser.php?action=upload-images', {
-        method: 'POST',
-        body: formData,
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-        throw new Error(data.message || 'Upload immagini non riuscito');
+    const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
+    if (isStaticEnv) {
+        await uploadImagesLocally(files);
+        return;
     }
 
-    await loadMediaData();
+    try {
+        const fallbackFolder = state.browserCurrentSubfolder ? `uploads/${state.browserCurrentSubfolder}` : 'uploads';
+        const folder = state.browserSelectedFolder || fallbackFolder;
 
-    // Auto-assign uploaded images to H2s in order
-    if (data.uploaded && data.uploaded.length > 0) {
-        autoAssignImagesToH2s(data.uploaded);
-    }
+        const formData = new FormData();
+        formData.append('folder', folder);
+        Array.from(files).forEach(file => formData.append('images[]', file));
 
-    await selectBrowserFolder(folder);
+        const res = await fetch('api/file-browser.php?action=upload-images', {
+            method: 'POST',
+            body: formData,
+        });
 
-    const out = document.getElementById('publish-result');
-    if (out) {
-        out.textContent = `Caricate ${data.uploaded?.length || 0} immagini in ${folder}. Assegnate automaticamente agli H2.`;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+            throw new Error(data.message || 'Upload immagini non riuscito');
+        }
+
+        await loadMediaData();
+
+        if (data.uploaded && data.uploaded.length > 0) {
+            autoAssignImagesToH2s(data.uploaded);
+        }
+
+        await selectBrowserFolder(folder).catch(() => {});
+
+        const out = document.getElementById('publish-result');
+        if (out) {
+            out.textContent = `Caricate ${data.uploaded?.length || 0} immagini in ${folder}. Assegnate automaticamente agli H2.`;
+        }
+    } catch (err) {
+        console.warn('Fallback upload locale:', err);
+        await uploadImagesLocally(files);
     }
 }
 
 function autoAssignImagesToH2s(uploadedImages) {
-    // Trova il primo H2 non ancora assegnato
     const h2Count = state.reviewH2Titles.length;
 
-    uploadedImages.forEach((uploadedImg, idx) => {
-        // Trova l'indice del token dell'immagine caricata
-        const imgToken = state.mediaImages.find(img =>
-            img.url === uploadedImg.url || img.file === uploadedImg.name
+    uploadedImages.forEach((uploadedImg) => {
+        const imgToken = uploadedImg.token || state.mediaImages.find(img =>
+            img.url === uploadedImg.url || img.file === uploadedImg.name || img.file === uploadedImg.file
         )?.token;
 
         if (!imgToken) return;
 
-        // Trova il primo H2 non assegnato
-        let h2Idx = 0;
+        let h2Idx = -1;
         for (let i = 0; i < h2Count; i++) {
             if (!state.h2ImageMap[String(i)]) {
                 h2Idx = i;
@@ -678,8 +801,7 @@ function autoAssignImagesToH2s(uploadedImages) {
             }
         }
 
-        // Assegna l'immagine all'H2 trovato
-        if (h2Idx < h2Count) {
+        if (h2Idx >= 0 && h2Idx < h2Count) {
             state.h2ImageMap[String(h2Idx)] = imgToken;
         }
     });
@@ -808,8 +930,10 @@ async function createNewUploadFolder(folderName) {
 }
 
 function initializeModuleB() {
+    loadCustomImagesFromStorage();
     renderBrowserFiles();
     renderH2Cards();
+    renderLibraryGallery();
 
     const info = document.getElementById('b-selected-folder');
     if (info) {
@@ -818,17 +942,36 @@ function initializeModuleB() {
             : 'Cartella selezionata: uploads';
     }
 
-    // ── ScrapingBee key: carica da server o localStorage ─────────
+    // Modal listeners
+    document.getElementById('img-picker-close')?.addEventListener('click', closeImgPickerModal);
+    document.getElementById('upload-folder-cancel')?.addEventListener('click', closeUploadFolderModal);
+    document.getElementById('upload-folder-confirm')?.addEventListener('click', () => {
+        closeUploadFolderModal();
+        document.getElementById('b-upload-images-input')?.click();
+    });
+    document.getElementById('upload-new-folder-btn')?.addEventListener('click', () => {
+        const input = document.getElementById('upload-new-folder-name');
+        if (input && input.value) {
+            createNewUploadFolder(input.value).catch(err => {
+                const resEl = document.getElementById('upload-new-folder-result');
+                if (resEl) {
+                    resEl.textContent = '❌ Errore: ' + err.message;
+                    resEl.className = 'notice notice-warn';
+                    resEl.style.display = 'block';
+                }
+            });
+        }
+    });
+
+    // ScrapingBee key
     const keyInput  = document.getElementById('b-scrapingbee-key');
     const statusEl  = document.getElementById('b-scrapingbee-status');
 
-    // Prova prima localStorage, poi server
     const localKey = localStorage.getItem('fp_scrapingbee_key') || '';
     if (keyInput && localKey) {
         keyInput.value = localKey;
         if (statusEl) { statusEl.textContent = '✅ Chiave attiva'; statusEl.style.color = '#4ade80'; }
     } else if (keyInput) {
-        // Controlla se la chiave è salvata sul server
         fetch('api/settings.php')
             .then(r => r.json()).catch(() => ({}))
             .then(data => {
@@ -844,10 +987,8 @@ function initializeModuleB() {
     if (saveBtn && keyInput) {
         saveBtn.addEventListener('click', async () => {
             const key = keyInput.value.trim();
-            // Salva in localStorage
             if (key) localStorage.setItem('fp_scrapingbee_key', key);
             else localStorage.removeItem('fp_scrapingbee_key');
-            // Salva anche sul server
             try {
                 await fetch('api/settings.php', {
                     method: 'POST',
@@ -862,30 +1003,41 @@ function initializeModuleB() {
         });
     }
 
-    // ── Hub Team download button ─────────────────────────────────
     const teamHubBtn = document.getElementById('b-download-team-hubs-btn');
     if (teamHubBtn) {
         teamHubBtn.addEventListener('click', downloadFromTeamHubs);
     }
 }
 
-// ─── Scarica immagini dagli hub ufficiali dei team F1 ────────────────────────
-async function downloadFromTeamHubs() {
-    const checkboxes = document.querySelectorAll('#b-team-hub-checkboxes input[name="team_hub"]:checked');
-    const selectedTeams = Array.from(checkboxes).map(cb => cb.value);
+window.refreshH2SelectionState = refreshH2SelectionState;
+window.openImgPickerModal = openImgPickerModal;
+window.closeImgPickerModal = closeImgPickerModal;
+window.uploadImagesToSelectedFolder = uploadImagesToSelectedFolder;
 
+async function downloadFromTeamHubs() {
+    const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
     const statusEl  = document.getElementById('b-team-hub-status');
     const progressEl = document.getElementById('b-team-hub-progress');
     const barEl     = document.getElementById('b-team-hub-bar');
     const logEl     = document.getElementById('b-team-hub-log');
     const btn       = document.getElementById('b-download-team-hubs-btn');
 
+    if (isStaticEnv) {
+        if (statusEl) {
+            statusEl.textContent = '⚠️ Download dagli hub ufficiali non disponibile su GitHub Pages (richiede backend PHP). Carica le immagini da PC/telefono.';
+            statusEl.style.color = '#f87171';
+        }
+        return;
+    }
+
+    const checkboxes = document.querySelectorAll('#b-team-hub-checkboxes input[name="team_hub"]:checked');
+    const selectedTeams = Array.from(checkboxes).map(cb => cb.value);
+
     if (!selectedTeams.length) {
         if (statusEl) statusEl.textContent = '⚠️ Seleziona almeno un team.';
         return;
     }
 
-    // UI: avvio
     btn.disabled = true;
     btn.textContent = '⏳ Download in corso...';
     if (statusEl)   statusEl.textContent = `Connessione a ${selectedTeams.length} hub team...`;
@@ -926,7 +1078,6 @@ async function downloadFromTeamHubs() {
             throw new Error(data.message || `Errore server: ${res.status}`);
         }
 
-        // Mostra risultati per team
         let totalSaved = 0;
         Object.entries(data.results || {}).forEach(([teamId, r]) => {
             if (r.ok) {
@@ -942,7 +1093,6 @@ async function downloadFromTeamHubs() {
             statusEl.style.color = '#4ade80';
         }
 
-        // Aggiorna la galleria
         if (totalSaved > 0) {
             await loadMediaData();
         }

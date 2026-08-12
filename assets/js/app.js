@@ -145,6 +145,9 @@ function activateTab(tabId) {
     if (tabId === 'mod-chart' && typeof window.refreshCustomChartsModule === 'function') {
         window.refreshCustomChartsModule();
     }
+    if (tabId === 'mod-b' && typeof window.refreshH2SelectionState === 'function') {
+        window.refreshH2SelectionState();
+    }
 
     updatePreview();
 }
@@ -1155,15 +1158,27 @@ function attachListeners() {
     });
 
     document.getElementById('b-upload-images-btn')?.addEventListener('click', async () => {
+        if (isStaticEnv) {
+            document.getElementById('b-upload-images-input')?.click();
+            return;
+        }
         try {
             await openUploadFolderModal();
         } catch (err) {
-            const out = document.getElementById('publish-result');
-            if (out) out.textContent = `Errore apertura selezione cartella: ${err.message}`;
+            document.getElementById('b-upload-images-input')?.click();
         }
     });
 
     document.getElementById('b-download-photo-wall-btn')?.addEventListener('click', function () {
+        if (isStaticEnv) {
+            const out = document.getElementById('b-photo-wall-status');
+            if (out) {
+                out.className = 'notice notice-warn';
+                out.classList.remove('hidden');
+                out.textContent = '⚠️ Funzione server non disponibile su GitHub Pages. Usa "Carica immagini da PC/telefono" per aggiungere le tue foto.';
+            }
+            return;
+        }
         withBtnLock(this, '⏳ Download Photo Wall...', async () => {
             try {
                 const res = await fetch('api/photo-wall-sync.php', { method: 'POST' });
