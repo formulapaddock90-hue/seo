@@ -75,10 +75,10 @@ if ($apiKey === '') {
     jsonResponse(['error' => 'API key non configurata'], 400);
 }
 
-$modelUrl = trim((string)($appConfig['gemini_model_url'] ?? ''));
-if ($modelUrl === '') {
-    jsonResponse(['error' => 'URL modello non configurato'], 400);
-}
+$geminiModels = $appConfig['gemini_models'] ?? [
+    'gemini-2.0-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    'gemini-1.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+];
 
 $request = [
     'contents' => [
@@ -95,11 +95,24 @@ $request = [
     ],
 ];
 
-$res = postJson($modelUrl . '?key=' . urlencode($apiKey), $request);
-if (empty($res['ok']) || (int)($res['status'] ?? 0) < 200 || (int)($res['status'] ?? 0) >= 400) {
-    $status = (int)($res['status'] ?? 0);
-    $errorCode = $res['json']['error']['code'] ?? null;
-    $errorMessage = $res['json']['error']['message'] ?? $res['error'] ?? 'Errore sconosciuto';
+$res = null;
+$successfulModel = null;
+$lastError = null;
+
+foreach ($geminiModels as $mName => $mUrl) {
+    $r = postJson($mUrl . '?key=' . urlencode($apiKey), $request);
+    if (!empty($r['ok']) && (int)($r['status'] ?? 0) >= 200 && (int)($r['status'] ?? 0) < 400) {
+        $res = $r;
+        $successfulModel = $mName;
+        break;
+    }
+    $lastError = $r;
+}
+
+if (!$res) {
+    $status = (int)($lastError['status'] ?? 502);
+    $errorCode = $lastError['json']['error']['code'] ?? null;
+    $errorMessage = $lastError['json']['error']['message'] ?? $lastError['error'] ?? 'Errore sconosciuto';
     
     $errorMsg = 'Errore nella risposta dal modello';
     if ($errorCode === 429) {

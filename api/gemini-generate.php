@@ -81,8 +81,11 @@ $geminiModels = $appConfig['gemini_models'] ?? [];
 if (!is_array($geminiModels) || empty($geminiModels)) {
     // Fallback in caso di configurazione mancante - solo modelli ufficialmente supportati
     $geminiModels = [
+        'gemini-3.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
         'gemini-2.0-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-        'gemini-2.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        'gemini-1.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+        'gemini-1.5-pro' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
+        'gemini-2.0-flash-lite' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
     ];
 }
 

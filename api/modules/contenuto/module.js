@@ -177,6 +177,12 @@ async function generateSeoWithGemini() {
         } else {
             msg = '⚠️ ' + (data.warning || 'Gemini non disponibile. Usato testo di fallback.');
         }
+        const endpointsToTry = [
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent'
+        ];
         if (out) { out.className = 'notice notice-warn'; out.textContent = msg; }
     } else {
         if (out) { out.className = 'notice notice-ok'; out.textContent = '✅ Articolo generato. Salvataggio in corso...'; }

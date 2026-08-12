@@ -3,7 +3,7 @@
  * Configurazione globale del generatore di contenuti social FormulaPaddock per https://www.formulapaddock.it/seo/social/
  */
 
-$seoConfig = file_exists('F:/seo/config.php') ? require 'F:/seo/config.php' : [];
+$seoConfig = file_exists(__DIR__ . '/../config.php') ? require __DIR__ . '/../config.php' : [];
 
 return [
 
@@ -15,11 +15,12 @@ return [
 
     // ----- GOOGLE GEMINI -----
     'gemini_api_key' => $seoConfig['gemini_api_key'] ?? getenv('GEMINI_API_KEY') ?: '',
-    'gemini_model'   => 'gemini-2.5-flash',
+    'gemini_model'   => 'gemini-3.5-flash',
     'gemini_fallback_models' => [
-        'gemini-2.5-flash-lite',
         'gemini-2.0-flash',
+        'gemini-1.5-flash',
         'gemini-2.0-flash-lite',
+        'gemini-1.5-pro',
     ],
     'gemini_api_url' => 'https://generativelanguage.googleapis.com/v1beta/models',
 

@@ -1,4 +1,4 @@
-﻿function buildReviewHtml(options = {}) {
+function buildReviewHtml(options = {}) {
     const { applyAutoImages = state.autoPlacementEnabled } = options;
     const reviewOutput = (document.getElementById('review-content')?.value || '').trim();
     const articleHtml = toArticleHtml(reviewOutput);
@@ -91,43 +91,47 @@ async function loadWordPressMeta() {
     const data = await apiGet(`api/wordpress.php?action=meta&site=${encodeURIComponent(site)}`);
     state.wpPages = data.pages || [];
 
-    const wpCategory = document.getElementById('wp-category-name');
-    if (wpCategory) {
-        const currentValue = wpCategory.value;
-        wpCategory.innerHTML = '<option value="">Seleziona categoria</option>';
-        (data.categories || [])
-            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it'))
-            .forEach(cat => {
-                const opt = document.createElement('option');
-                opt.value = cat.name;
-                opt.textContent = cat.name;
-                wpCategory.appendChild(opt);
-            });
-        const defaultCategory = data.defaults?.category || '';
-        wpCategory.value = currentValue && wpCategory.querySelector(`option[value="${CSS.escape(currentValue)}"]`)
-            ? currentValue
-            : defaultCategory;
-    }
+    ['wp-category-name', 'wp-update-category-name'].forEach(id => {
+        const wpCategory = document.getElementById(id);
+        if (wpCategory) {
+            const currentValue = wpCategory.value;
+            wpCategory.innerHTML = '<option value="">— categoria —</option>';
+            (data.categories || [])
+                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it'))
+                .forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat.name;
+                    opt.textContent = cat.name;
+                    wpCategory.appendChild(opt);
+                });
+            const defaultCategory = data.defaults?.category || '';
+            wpCategory.value = currentValue && wpCategory.querySelector(`option[value="${CSS.escape(currentValue)}"]`)
+                ? currentValue
+                : defaultCategory;
+        }
+    });
 
-    const parentSelect = document.getElementById('wp-parent-page');
-    if (parentSelect) {
-        const currentParent = parentSelect.value;
-        parentSelect.innerHTML = '<option value="">Nessuna</option>';
-        (data.pages || [])
-            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-            .forEach(page => {
-                const opt = document.createElement('option');
-                opt.value = page.id;
-                opt.dataset.postType = page.post_type || 'page';
-                const prefix = page.post_type === 'page' ? (page.parent ? '— ' : '') : `[${page.post_type}] `;
-                opt.textContent = prefix + page.title;
-                parentSelect.appendChild(opt);
-            });
-        const defaultParent = data.defaults?.parent_page || '';
-        parentSelect.value = currentParent && parentSelect.querySelector(`option[value="${CSS.escape(currentParent)}"]`)
-            ? currentParent
-            : defaultParent;
-    }
+    ['wp-parent-page', 'wp-update-parent-page'].forEach(id => {
+        const parentSelect = document.getElementById(id);
+        if (parentSelect) {
+            const currentParent = parentSelect.value;
+            parentSelect.innerHTML = '<option value="">Nessuna</option>';
+            (data.pages || [])
+                .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+                .forEach(page => {
+                    const opt = document.createElement('option');
+                    opt.value = page.id;
+                    opt.dataset.postType = page.post_type || 'page';
+                    const prefix = page.post_type === 'page' ? (page.parent ? '— ' : '') : `[${page.post_type}] `;
+                    opt.textContent = prefix + page.title;
+                    parentSelect.appendChild(opt);
+                });
+            const defaultParent = data.defaults?.parent_page || '';
+            parentSelect.value = currentParent && parentSelect.querySelector(`option[value="${CSS.escape(currentParent)}"]`)
+                ? currentParent
+                : defaultParent;
+        }
+    });
 }
 
 function normalizeSeoWhitespace(value) {
@@ -378,14 +382,22 @@ async function updateExistingArticle() {
     const siteSeo = readSeoFields(generatedSeo);
 
     const categoryName = (
-        document.getElementById('wp-category-name')?.value
+        document.getElementById('wp-update-category-name')?.value
+        || document.getElementById('wp-category-name')?.value
         || document.getElementById('selected-category')?.value
         || ''
     ).trim();
 
+    const parentPageValue = (
+        document.getElementById('wp-update-parent-page')?.value
+        || document.getElementById('wp-parent-page')?.value
+        || ''
+    ).trim();
+    const isUrl = parentPageValue.startsWith('http://') || parentPageValue.startsWith('https://');
+
     const updateStatus = (document.getElementById('wp-update-status')?.value || formData.publish_status || 'publish');
-    // Usa il tipo reale dell'articolo (da sitemap) o quello selezionato manualmente
-    const resolvedPostType = existingPostType || formData.post_type || 'post';
+    // Usa il tipo selezionato nel pannello aggiorna, oppure il tipo reale dell'articolo (da sitemap) o quello del form
+    const resolvedPostType = (document.getElementById('wp-update-post-type')?.value || existingPostType || formData.post_type || 'post');
     // Data pubblicazione: se vuota usa la data/ora corrente
     const updateDateRaw = (document.getElementById('wp-update-date')?.value || '').trim();
     const nowDate = new Date();
@@ -408,6 +420,8 @@ async function updateExistingArticle() {
         status:            updateStatus,
         date:              updateDate,
         category_name:     categoryName,
+        parent_page_id:    isUrl ? 0 : (parentPageValue ? Number(parentPageValue) : 0),
+        parent_page_url:   isUrl ? parentPageValue : '',
         featured_media_id: featuredMediaId,
         seo_title:         siteSeo.seoTitle,
         meta_description:  siteSeo.metaDescription,

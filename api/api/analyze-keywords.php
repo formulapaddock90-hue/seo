@@ -35,7 +35,8 @@ if ($apiKey === '') {
 }
 
 $geminiModels = $appConfig['gemini_models'] ?? [
-    'gemini-2.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    'gemini-2.0-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    'gemini-1.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
 ];
 
 $request = [

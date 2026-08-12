@@ -50,7 +50,7 @@
 
         <!-- Panel: Pubblica nuovo -->
         <div id="g-panel-pubblica">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
                 <label style="margin:0;font-size:.85rem;">Tipo contenuto
                     <select name="post_type" id="wp-post-type" style="margin-top:3px;">
                         <option value="post">Articolo (post)</option>
@@ -64,42 +64,62 @@
                         <option value="pending">In revisione</option>
                     </select>
                 </label>
-                <label style="margin:0;font-size:.85rem;">Categoria
+                <label id="wp-category-wrapper" style="margin:0;font-size:.85rem;">Categoria
                     <select name="category_name" id="wp-category-name" style="margin-top:3px;">
                         <option value="">— categoria —</option>
                     </select>
                 </label>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:end;margin-bottom:6px;">
-                <label style="margin:0;font-size:.85rem;">Pagina genitore
+                <label id="wp-parent-wrapper" style="margin:0;font-size:.85rem;">Pagina genitore
                     <select name="parent_page_id" id="wp-parent-page" style="margin-top:3px;">
                         <option value="">Nessuna</option>
                     </select>
                 </label>
-                <input type="text" id="new-category-name" placeholder="Nuova categoria…" style="margin:0;height:34px;">
-                <button type="button" id="add-category-btn" style="height:34px;white-space:nowrap;">+ Cat</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:6px;">
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="text" id="new-category-name" placeholder="Nuova categoria…" style="margin:0;height:34px;flex:1;">
+                    <button type="button" id="add-category-btn" style="height:34px;white-space:nowrap;">+ Cat</button>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" id="review-publish">📤 Pubblica</button>
+                    <button type="button" id="review-edit">✏️ Modifica</button>
+                </div>
             </div>
             <div style="min-height:16px;margin-bottom:8px;">
                 <span id="add-category-result" class="muted" style="font-size:.78rem;"></span>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button type="button" id="review-publish">📤 Pubblica</button>
-                <button type="button" id="review-edit">✏️ Modifica</button>
             </div>
         </div>
 
         <!-- Panel: Aggiorna esistente -->
         <div id="g-panel-aggiorna" style="display:none;">
-            <div style="display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:end;margin-bottom:8px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+                <label style="margin:0;font-size:.85rem;">Tipo contenuto
+                    <select id="wp-update-post-type" style="margin-top:3px;">
+                        <option value="post">Articolo (post)</option>
+                        <option value="page">Pagina</option>
+                    </select>
+                </label>
                 <label style="margin:0;font-size:.85rem;">Stato
-                    <select id="wp-update-status" style="margin-top:3px;min-width:120px;">
+                    <select id="wp-update-status" style="margin-top:3px;">
                         <option value="publish">Pubblica</option>
                         <option value="draft">Bozza</option>
                         <option value="pending">In revisione</option>
                     </select>
                 </label>
+                <label id="wp-update-category-wrapper" style="margin:0;font-size:.85rem;">Categoria
+                    <select id="wp-update-category-name" style="margin-top:3px;">
+                        <option value="">— categoria —</option>
+                    </select>
+                </label>
+                <label id="wp-update-parent-wrapper" style="margin:0;font-size:.85rem;">Pagina genitore
+                    <select id="wp-update-parent-page" style="margin-top:3px;">
+                        <option value="">Nessuna</option>
+                    </select>
+                </label>
+            </div>
+            <div style="display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:end;margin-bottom:8px;">
                 <label style="margin:0;font-size:.85rem;">Data pubblicazione
-                    <input type="datetime-local" id="wp-update-date" style="margin-top:3px;min-width:180px;">
+                    <input type="datetime-local" id="wp-update-date" style="margin-top:3px;">
                 </label>
                 <label style="margin:0;font-size:.85rem;">URL articolo da sovrascrivere
                     <div style="display:flex;gap:6px;margin-top:3px;">

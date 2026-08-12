@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 require __DIR__ . '/bootstrap.php';
 
@@ -1081,10 +1081,10 @@ if ($action === 'generate_postgara_article' && $_SERVER['REQUEST_METHOD'] === 'P
         jsonResponse(['ok' => false, 'message' => 'API key Gemini non configurata'], 500);
     }
 
-    // Modelli con fallback: 2.5-flash prima, 2.0-flash se indisponibile
+    // Modelli con fallback: 2.0-flash prima, 1.5-flash se indisponibile
     $geminiModels = [
-        'gemini-2.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
         'gemini-2.0-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+        'gemini-1.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
     ];
 
     $request = [

@@ -4,6 +4,8 @@
  * Compila tutti i valori prima di usare l'applicazione.
  */
 
+$seoConfig = file_exists(__DIR__ . '/../../config.php') ? require __DIR__ . '/../../config.php' : [];
+
 return [
 
     // ===================== PROVIDER AI =====================
@@ -12,16 +14,15 @@ return [
 
     // ----- GOOGLE GEMINI -----
     // Chiave API da https://aistudio.google.com/apikey
-    'gemini_api_key' => getenv('GEMINI_API_KEY') ?: '',
+    'gemini_api_key' => $seoConfig['gemini_api_key'] ?? (getenv('GEMINI_API_KEY') ?: ''),
     'gemini_model'   => 'gemini-3.5-flash',
     // Modelli di riserva, provati in ordine se il precedente fallisce
     // (es. quota esaurita / 429 sul piano free)
     'gemini_fallback_models' => [
-        'gemini-3.1-flash-lite',
-        'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
         'gemini-2.0-flash',
+        'gemini-1.5-flash',
         'gemini-2.0-flash-lite',
+        'gemini-1.5-pro',
     ],
     'gemini_api_url' => 'https://generativelanguage.googleapis.com/v1beta/models',
 

@@ -662,9 +662,9 @@ async function testGeminiSettings() {
         }
         try {
             const testEndpoints = [
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
-                'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent'
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent'
             ];
             let success = false;
             let lastErr = '';

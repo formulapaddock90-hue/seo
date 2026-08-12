@@ -2,45 +2,49 @@
 
 require __DIR__ . '/bootstrap.php';
 
-$storageDir = __DIR__ . '/../storage/articles';
-$storageFile = $storageDir . '/articles.json';
-$action = $_GET['action'] ?? '';
+$pathsToTry = [
+    __DIR__ . '/../storage/articles/articles.json',
+    __DIR__ . '/storage/articles/articles.json',
+    dirname(__DIR__) . '/storage/articles/articles.json',
+];
+
+$storageFile = '';
+foreach ($pathsToTry as $p) {
+    if (file_exists($p) && filesize($p) > 0) {
+        $storageFile = $p;
+        break;
+    }
+}
+if ($storageFile === '') {
+    $storageFile = __DIR__ . '/../storage/articles/articles.json';
+}
+$storageDir = dirname($storageFile);
 
 if (!is_dir($storageDir)) {
-    @mkdir($storageDir, 0775, true);
+    @mkdir($storageDir, 0777, true);
 }
 
 if (!is_file($storageFile)) {
-    file_put_contents($storageFile, json_encode(['articles' => []], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    @file_put_contents($storageFile, json_encode(['articles' => []], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
 function readArticles(string $storageFile): array
 {
-    $fp = @fopen($storageFile, 'c+');
-    if ($fp === false) {
-        throw new RuntimeException('Impossibile aprire archivio articoli');
+    if (!is_file($storageFile)) {
+        return [];
     }
 
-    try {
-        if (!flock($fp, LOCK_SH)) {
-            throw new RuntimeException('Impossibile bloccare archivio in lettura');
-        }
-
-        $raw = stream_get_contents($fp);
-        if (!is_string($raw) || trim($raw) === '') {
-            $raw = '{"articles":[]}';
-        }
-
-        $decoded = json_decode($raw, true);
-        if (!is_array($decoded) || !isset($decoded['articles']) || !is_array($decoded['articles'])) {
-            $decoded = ['articles' => []];
-        }
-
-        return $decoded['articles'];
-    } finally {
-        flock($fp, LOCK_UN);
-        fclose($fp);
+    $raw = @file_get_contents($storageFile);
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
     }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || !isset($decoded['articles']) || !is_array($decoded['articles'])) {
+        return [];
+    }
+
+    return $decoded['articles'];
 }
 
 function writeArticles(string $storageFile, array $articles): void

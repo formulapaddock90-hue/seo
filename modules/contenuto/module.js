@@ -153,11 +153,10 @@ async function generateSeoWithGemini() {
                 const promptText = `Sei un giornalista motorsport esperto di Formula 1 per FormulaPaddock.it. Scrivi un articolo SEO completo ed avvincente in italiano basato sul seguente testo/comunicato. Usa H1 per il titolo principale e vari H2 per i sottotitoli. Categoria: ${payload.category_name || 'Formula 1'}. Circuito: ${payload.circuito || 'Monza'}.\n\nTesto grezzo:\n${rawText}`;
                 
                 const endpointsToTry = [
-                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent',
-                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
-                    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
-                    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent'
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent'
                 ];
                 let genText = null;
                 let lastErr = '';
