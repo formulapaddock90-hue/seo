@@ -178,6 +178,8 @@ async function generateSeoWithGemini() {
             msg = '⚠️ ' + (data.warning || 'Gemini non disponibile. Usato testo di fallback.');
         }
         const endpointsToTry = [
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',

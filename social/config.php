@@ -15,12 +15,14 @@ return [
 
     // ----- GOOGLE GEMINI -----
     'gemini_api_key' => $seoConfig['gemini_api_key'] ?? getenv('GEMINI_API_KEY') ?: '',
-    'gemini_model'   => 'gemini-3.5-flash',
-    'gemini_fallback_models' => [
+    'gemini_model'   => 'gemini-3.6-flash',
+    'fallback_models' => [
+        'gemini-3.6-flash',
+        'gemini-3.5-flash',
         'gemini-2.0-flash',
         'gemini-1.5-flash',
         'gemini-2.0-flash-lite',
-        'gemini-1.5-pro',
+        'gemini-1.5-pro'
     ],
     'gemini_api_url' => 'https://generativelanguage.googleapis.com/v1beta/models',
 
