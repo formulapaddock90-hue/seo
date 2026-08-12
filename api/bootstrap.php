@@ -27,6 +27,14 @@ set_exception_handler(function($exception) {
     jsonResponse(['error' => 'Errore interno del server', 'exception' => $exception->getMessage()], 500);
 });
 
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    http_response_code(204);
+    exit;
+}
+
 require_once __DIR__ . '/../auth.php';
 checkAuth();
 
@@ -38,6 +46,9 @@ date_default_timezone_set($appConfig['timezone'] ?? 'UTC');
 function jsonResponse($payload, int $status = 200): void
 {
     http_response_code($status);
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
