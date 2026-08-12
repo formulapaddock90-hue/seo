@@ -80,6 +80,7 @@ if ($apiKey === '') {
 $geminiModels = $appConfig['gemini_models'] ?? [];
 if (!is_array($geminiModels) || empty($geminiModels)) {
     $geminiModels = [
+        'gemini-3.6-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
         'gemini-2.0-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
         'gemini-1.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
         'gemini-1.5-pro' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
