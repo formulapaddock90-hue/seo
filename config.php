@@ -12,7 +12,7 @@ $settingsFile = __DIR__ . '/storage/settings.json';
 $savedSettings = file_exists($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?? []) : [];
 
 $geminiApiKey = !empty($savedSettings['gemini_api_key']) ? $savedSettings['gemini_api_key'] : (getenv('GEMINI_API_KEY') ?: '');
-$geminiModelUrl = !empty($savedSettings['gemini_model_url']) ? $savedSettings['gemini_model_url'] : 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
+$geminiModelUrl = !empty($savedSettings['gemini_model_url']) ? $savedSettings['gemini_model_url'] : 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 return array (
   'auth_user' => 'admin',
@@ -21,12 +21,12 @@ return array (
   'gemini_model_url' => $geminiModelUrl,
   'gemini_models' => 
   array (
-    'gemini-3.6-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
-    'gemini-3.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
     'gemini-2.0-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
     'gemini-1.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
     'gemini-1.5-pro' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
     'gemini-2.0-flash-lite' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+    'gemini-3.6-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
+    'gemini-3.5-flash' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
   ),
   'google_service_account_email' => '',
   'google_service_account_private_key' => '',
