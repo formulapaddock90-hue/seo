@@ -10,7 +10,7 @@ if (!is_dir($sitemapsDir)) {
 
 function fetchAndCache(string $url, string $dir): string
 {
-    $filename = basename(parse_url($url, PHP_URL_PATH) ?? 'sitemap.xml') ?: 'sitemap.xml';
+    $filename = basename((string)(parse_url($url, PHP_URL_PATH) ?? 'sitemap.xml')) ?: 'sitemap.xml';
     $cachePath = $dir . DIRECTORY_SEPARATOR . $filename;
     $ttl = 6 * 3600;
 
@@ -84,7 +84,7 @@ $postTypes     = [];
 foreach ($appConfig['sitemaps'] as $sitemapUrl) {
     $raw          = fetchAndCache($sitemapUrl, $sitemapsDir);
     $entries      = getXmlEntries($raw);
-    $sitemapName  = basename(parse_url($sitemapUrl, PHP_URL_PATH) ?? 'sitemap.xml') ?: 'sitemap.xml';
+    $sitemapName  = basename((string)(parse_url($sitemapUrl, PHP_URL_PATH) ?? 'sitemap.xml')) ?: 'sitemap.xml';
     $isCategory   = stripos($sitemapName, 'category') !== false;
     $postType     = postTypeFromSitemapName($sitemapName);
 

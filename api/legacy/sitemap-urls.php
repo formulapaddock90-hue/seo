@@ -50,7 +50,7 @@ function getXmlEntries(string $xml): array
 
 function fetchAndCache(string $url, string $dir): string
 {
-    $filename = basename(parse_url($url, PHP_URL_PATH) ?? 'sitemap.xml') ?: 'sitemap.xml';
+    $filename = basename((string)(parse_url($url, PHP_URL_PATH) ?? 'sitemap.xml')) ?: 'sitemap.xml';
     $cachePath = $dir . DIRECTORY_SEPARATOR . $filename;
     $ttl = 6 * 3600;
 

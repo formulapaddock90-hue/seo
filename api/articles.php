@@ -2,6 +2,8 @@
 
 require __DIR__ . '/bootstrap.php';
 
+$action = $_GET['action'] ?? $_POST['action'] ?? null;
+
 $pathsToTry = [
     __DIR__ . '/../storage/articles/articles.json',
     __DIR__ . '/storage/articles/articles.json',

@@ -52,7 +52,7 @@ header('Content-Type: application/json; charset=utf-8');
 if ($action === 'credits') {
     if (!$sbKey) { echo json_encode(['error' => 'Nessuna API key trovata']); exit; }
     $res = doGet('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($sbKey));
-    $data = json_decode($res['body'], true);
+    $data = json_decode($res['body'], true) ?: [];
     echo json_encode([
         'key_present'    => true,
         'key_prefix'     => substr($sbKey, 0, 8) . '...',

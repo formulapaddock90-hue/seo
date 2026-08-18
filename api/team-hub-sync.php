@@ -213,7 +213,8 @@ function resolveUrl(string $url, string $base): string
 
 function saveImage(string $url, string $dir, string $prefix, string $cookieFile = ''): bool
 {
-    $urlPath = parse_url($url, PHP_URL_PATH) ?? '';
+    $urlPath = parse_url($url, PHP_URL_PATH);
+    $urlPath = is_string($urlPath) ? $urlPath : '';
     $ext = strtolower(pathinfo($urlPath, PATHINFO_EXTENSION)) ?: 'jpg';
     if (!in_array($ext, ['jpg','jpeg','png','webp'])) $ext = 'jpg';
     $fname = $dir . '/' . $prefix . '_' . md5($url) . '.' . $ext;
@@ -336,7 +337,7 @@ function fetchRedBullPool(array $cred, string $dir, int $limit): array
             CURLOPT_HTTPHEADER => $headers,
         ]);
         $imgs = extractImagesFromHtml($html['body'], $cred['url']);
-        $imgs = array_filter($imgs, fn($u) => preg_match('/\.(jpe?g|png)$/i', parse_url($u, PHP_URL_PATH)));
+        $imgs = array_filter($imgs, fn($u) => preg_match('/\.(jpe?g|png)$/i', (string)parse_url($u, PHP_URL_PATH)));
         $imgs = array_slice(array_values($imgs), 0, $limit);
         foreach ($imgs as $url) if (saveImage($url, $dir, 'rb', $cookie)) $saved++;
         $items = $imgs;

@@ -865,7 +865,7 @@ if ($action === 'publish' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $focusKeyword = trim((string)($payload['focus_keyword'] ?? ''));
 
     if ($parentPageId <= 0 && $parentPageUrl !== '') {
-        $slug = basename(rtrim(parse_url($parentPageUrl, PHP_URL_PATH) ?? '', '/'));
+        $slug = basename(rtrim((string)(parse_url($parentPageUrl, PHP_URL_PATH) ?? ''), '/'));
         if ($slug !== '') {
             $searchRes = wpRequest($site, $postType . '?slug=' . urlencode($slug) . '&_fields=id');
             if (($searchRes['status'] ?? 500) < 400 && !empty($searchRes['json'][0]['id'])) {
