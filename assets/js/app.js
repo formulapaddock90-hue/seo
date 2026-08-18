@@ -161,6 +161,11 @@ async function apiGet(path) {
     const res = await fetch(path);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+        if (res.status === 401) {
+            alert("La sessione è scaduta o non è più valida. Verrai reindirizzato alla pagina di login.");
+            window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+            return new Promise(() => {});
+        }
         const parts = [data.error, data.message, data.details]
             .filter(Boolean)
             .map(v => String(v).trim())
@@ -181,6 +186,11 @@ async function apiPost(path, payload) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+        if (res.status === 401) {
+            alert("La sessione è scaduta o non è più valida. Verrai reindirizzato alla pagina di login.");
+            window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+            return new Promise(() => {});
+        }
         const detailStr = data.details
             ? (typeof data.details === 'object'
                 ? (data.details.message || JSON.stringify(data.details))

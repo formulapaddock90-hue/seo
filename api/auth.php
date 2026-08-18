@@ -6,6 +6,26 @@
  */
 
 if (session_status() === PHP_SESSION_NONE) {
+    // Estende la durata della sessione a 12 ore (43200 secondi)
+    ini_set('session.gc_maxlifetime', 43200);
+    ini_set('session.cookie_lifetime', 43200);
+    
+    // Configura parametri del cookie in modo sicuro e compatibile
+    $isSecure = isset($_SERVER['HTTPS']) && (
+        strtolower($_SERVER['HTTPS']) === 'on' || 
+        $_SERVER['HTTPS'] === '1' || 
+        (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+    );
+    
+    session_set_cookie_params([
+        'lifetime' => 43200,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    
     session_start();
 }
 
