@@ -13,7 +13,7 @@ ini_set('display_errors', 1);
 
 require_once __DIR__ . '/includes/url_extractor.php';
 require_once __DIR__ . '/includes/ai_generator.php';
-require_once __DIR__ . '/includes/image_generator.php';
+require_once __DIR__ . '/../../social/includes/image_generator.php';
 require_once __DIR__ . '/includes/google_service.php';
 
 $config = require __DIR__ . '/config.php';
