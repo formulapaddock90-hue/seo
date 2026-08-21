@@ -66,6 +66,22 @@ function extractTextFromUrl(string $url): array
         }
     }
 
+    // ---- Immagine in evidenza / OG Image ----
+    $imageUrl = '';
+    $imgNodes = $xpath->query('//meta[@property="og:image"]/@content | //meta[@name="twitter:image"]/@content | //meta[@property="twitter:image"]/@content | //link[@rel="image_src"]/@href');
+    if ($imgNodes->length > 0) {
+        $imageUrl = trim($imgNodes->item(0)->nodeValue);
+    }
+    if ($imageUrl === '') {
+        $articleImgs = $xpath->query('//article//img/@src | //main//img/@src | //img[contains(@class, "wp-post-image")]/@src | //img[contains(@class, "featured")]/@src');
+        if ($articleImgs->length > 0) {
+            $imageUrl = trim($articleImgs->item(0)->nodeValue);
+        }
+    }
+    if ($imageUrl !== '' && str_starts_with($imageUrl, '//')) {
+        $imageUrl = 'https:' . $imageUrl;
+    }
+
     // ---- Rimuovi elementi inutili (script, style, nav, footer, header, form, aside) ----
     $tagsToRemove = ['script', 'style', 'nav', 'footer', 'header', 'form', 'aside', 'noscript', 'iframe'];
     foreach ($tagsToRemove as $tag) {
@@ -139,6 +155,7 @@ function extractTextFromUrl(string $url): array
         'title'      => $title !== '' ? $title : 'Articolo',
         'text'       => $text,
         'source_url' => $url,
+        'image_url'  => $imageUrl,
     ];
 }
 
