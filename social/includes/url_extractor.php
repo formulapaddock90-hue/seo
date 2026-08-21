@@ -4,6 +4,88 @@
  */
 
 /**
+ * Guardia anticipata per le richieste AJAX/JSON a social/process.php.
+ * Questo file e' il primo include caricato dal processo social: installando qui
+ * il gestore possiamo intercettare anche errori fatali o eccezioni che avvengono
+ * nei successivi include/config, prima del try/catch principale di process.php.
+ */
+function fpSocialEarlyJsonRequest(): bool
+{
+    $format = strtolower(trim((string)($_GET['format'] ?? '')));
+    $contentType = strtolower((string)($_SERVER['CONTENT_TYPE'] ?? ''));
+    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+    $requestedWith = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+    $fetchDest = strtolower((string)($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
+
+    if ($format === 'json') return true;
+    if (strpos($contentType, 'application/json') !== false) return true;
+    if (strpos($accept, 'application/json') !== false) return true;
+    if ($requestedWith === 'xmlhttprequest') return true;
+    if ($fetchDest === 'empty') return true;
+    if ($accept !== '' && strpos($accept, 'text/html') === false) return true;
+
+    return false;
+}
+
+function fpSocialEmergencyJson(string $message, int $status = 500): void
+{
+    if (!empty($GLOBALS['fp_social_emergency_json_sent'])) {
+        return;
+    }
+    $GLOBALS['fp_social_emergency_json_sent'] = true;
+
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
+    if (!headers_sent()) {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+    }
+
+    echo json_encode([
+        'ok' => false,
+        'error' => $message,
+        'code' => 'SOCIAL_BOOTSTRAP_ERROR',
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+if (!defined('FP_SOCIAL_EARLY_JSON_GUARD') && fpSocialEarlyJsonRequest()) {
+    define('FP_SOCIAL_EARLY_JSON_GUARD', true);
+
+    // Trattiene qualunque output accidentale prodotto da include/config legacy.
+    if (ob_get_level() === 0) {
+        ob_start();
+    }
+
+    set_exception_handler(static function (Throwable $e): void {
+        error_log('[social bootstrap] ' . get_class($e) . ': ' . $e->getMessage());
+        fpSocialEmergencyJson('Errore interno durante l\'avvio del generatore social.');
+        exit;
+    });
+
+    register_shutdown_function(static function (): void {
+        if (!empty($GLOBALS['fp_social_emergency_json_sent'])) {
+            return;
+        }
+
+        $error = error_get_last();
+        if (!$error) {
+            return;
+        }
+
+        $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+        if (!in_array((int)$error['type'], $fatalTypes, true)) {
+            return;
+        }
+
+        error_log('[social bootstrap fatal] ' . ($error['message'] ?? 'Errore PHP'));
+        fpSocialEmergencyJson('Errore PHP durante l\'avvio del generatore social.');
+    });
+}
+
+/**
  * Scarica una pagina e ne estrae il testo "leggibile" (titolo + paragrafi).
  *
  * @param string $url
