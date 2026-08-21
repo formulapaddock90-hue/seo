@@ -27,16 +27,48 @@ set_exception_handler(function($exception) {
     jsonResponse(['error' => 'Errore interno del server', 'exception' => $exception->getMessage()], 500);
 });
 
+/**
+ * Consente al frontend statico GitHub Pages di usare il backend Aruba.
+ * La password non viene mai salvata nel repository: il browser la invia
+ * nell'header X-Content-Hub-Key e il server la confronta con AUTH_PASSWORD.
+ */
+function contentHubApplyCors(): void
+{
+    $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+    $allowedOrigin = 'https://formulapaddock90-hue.github.io';
+
+    if ($origin === $allowedOrigin) {
+        header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+        header('Vary: Origin');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Content-Hub-Key');
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Max-Age: 600');
+    }
+}
+
+contentHubApplyCors();
+
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
     http_response_code(204);
     exit;
 }
 
 require_once __DIR__ . '/../auth.php';
-checkAuth();
+
+$bridgeOrigin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+$bridgeKey = trim((string)($_SERVER['HTTP_X_CONTENT_HUB_KEY'] ?? ''));
+$bridgeAuthorized = (
+    $bridgeOrigin === 'https://formulapaddock90-hue.github.io'
+    && $bridgeKey !== ''
+    && (string)AUTH_PASSWORD !== ''
+    && hash_equals((string)AUTH_PASSWORD, $bridgeKey)
+);
+
+define('CONTENT_HUB_BRIDGE', $bridgeAuthorized);
+
+if (!$bridgeAuthorized) {
+    checkAuth();
+}
 
 $appConfig = require __DIR__ . '/../config.php';
 $sitesConfig = $appConfig;
@@ -46,9 +78,7 @@ date_default_timezone_set($appConfig['timezone'] ?? 'UTC');
 function jsonResponse($payload, int $status = 200): void
 {
     http_response_code($status);
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    contentHubApplyCors();
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
