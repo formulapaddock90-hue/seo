@@ -5,6 +5,7 @@ checkAuth();
 $siteConfig = require __DIR__ . '/config.php';
 $styleVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
+$jsonImportVersion = @filemtime(__DIR__ . '/assets/js/json-import-local.js') ?: time();
 ?>
 <!doctype html>
 <html lang="it">
@@ -70,8 +71,8 @@ $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
 <script src="<?= BASE_PATH ?>modules/postgara/final-standings.js?v=<?= urlencode((string)$appVersion) ?>"></script>
 <script src="<?= BASE_PATH ?>modules/revisione/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
 <script src="<?= BASE_PATH ?>assets/js/app.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= BASE_PATH ?>assets/js/json-import-local.js?v=<?= urlencode((string)$jsonImportVersion) ?>"></script>
 <script src="<?= BASE_PATH ?>modules/infografica/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
 <script src="<?= BASE_PATH ?>modules/grafici/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
 </body>
 </html>
-
