@@ -8,15 +8,6 @@
     const BACKEND_BASE = 'https://www.formulapaddock.it/seo/';
     const STORAGE_KEY = 'fp_aruba_backend_key';
 
-    // Dopo il caricamento degli asset statici, i link relativi operativi
-    // (es. social/index.php dopo la pubblicazione) devono aprirsi su Aruba.
-    if (!document.querySelector('base[data-fp-aruba]')) {
-        const base = document.createElement('base');
-        base.href = BACKEND_BASE;
-        base.dataset.fpAruba = '1';
-        document.head.prepend(base);
-    }
-
     function backendKey() {
         return (localStorage.getItem(STORAGE_KEY) || '').trim();
     }
@@ -24,6 +15,21 @@
     function backendUrl(path) {
         if (/^https?:\/\//i.test(path)) return path;
         return BACKEND_BASE + String(path || '').replace(/^\/+/, '');
+    }
+
+    function ensureArubaBaseForNavigation() {
+        let base = document.querySelector('base[data-fp-aruba]');
+        if (!base) {
+            base = document.createElement('base');
+            base.dataset.fpAruba = '1';
+            document.head.prepend(base);
+        }
+        base.href = BACKEND_BASE;
+        window.setTimeout(() => {
+            if (location.hostname === 'formulapaddock90-hue.github.io' && base?.isConnected) {
+                base.remove();
+            }
+        }, 30000);
     }
 
     async function backendRequest(path, options = {}) {
@@ -189,6 +195,9 @@
                     meeting_name: meetingName,
                     rows
                 });
+                // Solo a questo punto i link relativi di uscita (social/index.php)
+                // devono risolversi sul backend Aruba.
+                ensureArubaBaseForNavigation();
                 button.dataset.fpLiveContextReady = '1';
                 button.disabled = false;
                 button.textContent = originalText;
