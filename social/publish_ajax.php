@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $channel = trim($_POST['channel'] ?? '');
 $text    = trim($_POST['text'] ?? '');
 $link    = trim($_POST['link'] ?? '');
+$imageKey = trim($_POST['image_key'] ?? '');
 if ($link === '') {
     $link = null;
 }
@@ -40,10 +41,23 @@ try {
                 throw new Exception('Testo post Facebook mancante.');
             }
 
-            $images = $_SESSION['last_social_images'] ?? [];
-            $imagePath = $images['hd_image'] ?? ($images['fb_image'] ?? ($images['ig_image'] ?? ''));
+            $imagePath = '';
+            if ($imageKey !== '') {
+                $allowedKeys = ['top3', 'ferrari', 'top10'];
+                if (!in_array($imageKey, $allowedKeys, true)) {
+                    throw new Exception('Infografica Live non riconosciuta.');
+                }
+                $liveImages = $_SESSION['last_live_social_images'] ?? [];
+                $imagePath = (string)($liveImages[$imageKey] ?? '');
+            }
+
+            if ($imagePath === '') {
+                $images = $_SESSION['last_social_images'] ?? [];
+                $imagePath = $images['hd_image'] ?? ($images['fb_image'] ?? ($images['ig_image'] ?? ''));
+            }
+
             if ($imagePath === '' || !file_exists($imagePath)) {
-                throw new Exception('Immagine HD generata non disponibile. Rigenera prima il contenuto social.');
+                throw new Exception('Immagine generata non disponibile. Rigenera prima il contenuto social.');
             }
 
             require_once __DIR__ . '/includes/facebook_page_service.php';
@@ -51,6 +65,7 @@ try {
             $result = [
                 'ok'      => true,
                 'channel' => 'facebook',
+                'image_key' => $imageKey,
                 'message' => 'Post con immagine pubblicato su Facebook tramite Meta API!',
                 'detail'  => $res
             ];
