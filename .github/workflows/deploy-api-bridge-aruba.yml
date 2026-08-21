@@ -1,10 +1,14 @@
-name: Deploy API bridge to Aruba
+name: Deploy Content Hub bridge to Aruba
 
 on:
   push:
     branches:
       - main
     paths:
+      - "index.php"
+      - "assets/js/json-import-local.js"
+      - "api/index.php"
+      - "api/assets/js/json-import-local.js"
       - "api/bootstrap.php"
       - "api/settings.php"
       - "api/live-social-context.php"
@@ -26,14 +30,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare minimal backend bundle
+      - name: Prepare Content Hub bundle
         run: |
-          mkdir -p deploy/api
+          mkdir -p deploy/api deploy/assets/js deploy/api/assets/js
+          cp index.php deploy/index.php
+          cp assets/js/json-import-local.js deploy/assets/js/json-import-local.js
+          cp api/index.php deploy/api/index.php
+          cp api/assets/js/json-import-local.js deploy/api/assets/js/json-import-local.js
           cp api/bootstrap.php deploy/api/bootstrap.php
           cp api/settings.php deploy/api/settings.php
           cp api/live-social-context.php deploy/api/live-social-context.php
 
-      - name: Deploy API bridge to Aruba via FTPS
+      - name: Deploy Content Hub bridge to Aruba via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
