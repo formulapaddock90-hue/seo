@@ -8,8 +8,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 ini_set('max_execution_time', 300);
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// In produzione non mostrare warning/deprecation sopra l'interfaccia.
+// Gli errori applicativi vengono comunque gestiti da renderError().
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
+ini_set('display_errors', 0);
 
 require_once __DIR__ . '/includes/url_extractor.php';
 require_once __DIR__ . '/includes/ai_generator.php';
