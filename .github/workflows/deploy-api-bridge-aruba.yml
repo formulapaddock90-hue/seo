@@ -1,0 +1,49 @@
+name: Deploy API bridge to Aruba
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "api/bootstrap.php"
+      - "api/settings.php"
+      - ".github/workflows/deploy-api-bridge-aruba.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api-bridge-aruba
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare minimal backend bundle
+        run: |
+          mkdir -p deploy/api
+          cp api/bootstrap.php deploy/api/bootstrap.php
+          cp api/settings.php deploy/api/settings.php
+
+      - name: Deploy API bridge to Aruba via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./deploy/
+          server-dir: /www.formulapaddock.it/seo/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/config.php
+            **/private.php
+            **/.env*
