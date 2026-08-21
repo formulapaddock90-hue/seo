@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - "config.php"
       - "api/bootstrap.php"
       - "api/settings.php"
       - "api/live-social-context.php"
@@ -31,6 +32,7 @@ jobs:
       - name: Prepare minimal backend bundle
         run: |
           mkdir -p deploy/api deploy/api/api
+          cp config.php deploy/config.php
           cp api/bootstrap.php deploy/api/bootstrap.php
           cp api/settings.php deploy/api/settings.php
           cp api/live-social-context.php deploy/api/live-social-context.php
@@ -50,6 +52,5 @@ jobs:
           exclude: |
             **/.git*
             **/.git*/**
-            **/config.php
             **/private.php
             **/.env*
