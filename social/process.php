@@ -27,22 +27,30 @@ function requestExpectsJson(): bool
     $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
     $requestedWith = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
     $fetchDest = strtolower((string)($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
-    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
     if ($format === 'json') return true;
     if (strpos($contentType, 'application/json') !== false) return true;
     if (strpos($accept, 'application/json') !== false) return true;
     if ($requestedWith === 'xmlhttprequest') return true;
 
-    // I fetch() moderni usano normalmente Sec-Fetch-Dest: empty,
-    // mentre l'invio classico del form usa Sec-Fetch-Dest: document.
-    if ($method === 'POST' && $fetchDest === 'empty') return true;
+    // fetch() usa normalmente Sec-Fetch-Dest: empty sia in GET che in POST.
+    // Una navigazione classica del browser usa invece Sec-Fetch-Dest: document.
+    if ($fetchDest === 'empty') return true;
+
+    // Fallback per browser/proxy che non inoltrano Sec-Fetch-Dest:
+    // fetch() usa tipicamente Accept: */*, mentre la navigazione HTML accetta text/html.
+    if ($accept !== '' && strpos($accept, 'text/html') === false) return true;
 
     return false;
 }
 
 function jsonResponse(array $payload, int $status = 200): void
 {
+    // Elimina qualunque output accidentale precedente che renderebbe il JSON non valido.
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
     http_response_code($status);
     header('Content-Type: application/json; charset=UTF-8');
     header('Cache-Control: no-store');

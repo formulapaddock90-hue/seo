@@ -4,7 +4,21 @@
  * I segreti devono arrivare da config.php / config/private.php o da variabili d'ambiente.
  */
 
-$seoConfig = file_exists(__DIR__ . '/../config.php') ? require __DIR__ . '/../config.php' : [];
+$seoConfig = [];
+$seoConfigFile = __DIR__ . '/../config.php';
+if (file_exists($seoConfigFile)) {
+    // Alcune installazioni legacy possono avere output accidentale nel config root.
+    // Non deve mai finire nella risposta HTML/JSON del social tool.
+    ob_start();
+    try {
+        $loadedSeoConfig = require $seoConfigFile;
+    } finally {
+        ob_end_clean();
+    }
+    if (is_array($loadedSeoConfig)) {
+        $seoConfig = $loadedSeoConfig;
+    }
+}
 
 return [
     // ===================== REEL CLOUD ENGINE URL =====================
