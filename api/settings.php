@@ -11,6 +11,22 @@ $settingsFile = __DIR__ . '/../storage/settings.json';
 $settings = file_exists($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?? []) : [];
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$isBridge = defined('CONTENT_HUB_BRIDGE') && CONTENT_HUB_BRIDGE === true;
+
+function bridgeSafeSites(array $sites): array
+{
+    return array_map(static function (array $site): array {
+        return [
+            'key' => $site['key'] ?? '',
+            'label' => $site['label'] ?? '',
+            'url' => $site['url'] ?? '',
+            'username' => '',
+            'application_password' => '',
+            'default_category' => $site['default_category'] ?? '',
+            'default_parent_page' => $site['default_parent_page'] ?? '',
+        ];
+    }, $sites);
+}
 
 if ($method === 'GET') {
     $sites = [];
@@ -30,6 +46,16 @@ if ($method === 'GET') {
         }
     }
 
+    if ($isBridge) {
+        jsonResponse([
+            'ok' => true,
+            'bridge' => true,
+            'gemini_api_key' => '',
+            'gemini_model_url' => $settings['gemini_model_url'] ?? ($appConfig['gemini_model_url'] ?? ''),
+            'sites' => bridgeSafeSites($sites)
+        ]);
+    }
+
     jsonResponse([
         'ok' => true,
         'gemini_api_key' => $settings['gemini_api_key'] ?? ($appConfig['gemini_api_key'] ?? ''),
@@ -39,6 +65,15 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    // Da GitHub Pages le credenziali restano solo lato Aruba: il bridge non
+    // può sovrascrivere settings.json o password applicative WordPress.
+    if ($isBridge) {
+        jsonResponse([
+            'ok' => false,
+            'message' => 'Le impostazioni private si modificano solo dal pannello Aruba.'
+        ], 403);
+    }
+
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
     foreach ($input as $k => $v) {
         $settings[$k] = $v;
