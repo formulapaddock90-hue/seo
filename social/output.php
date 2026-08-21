@@ -356,7 +356,7 @@ $reelTargetUrl = $cloudUrl . '/?url=' . urlencode($sourceUrl !== '' ? $sourceUrl
                 <button type="button" class="btn-copy" onclick="copyToClipboard('text-facebook', this)">📋 Copia testo</button>
                 <div class="action-buttons">
                     <button type="button" class="btn-pub btn-facebook" onclick="publishSocial('facebook', 'text-facebook')">
-                        🚀 Pubblica su Facebook (Buffer)
+                        🚀 Pubblica su Facebook + immagine (Meta API)
                     </button>
                 </div>
             </div>
