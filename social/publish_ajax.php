@@ -3,6 +3,10 @@
  * publish_ajax.php — Endpoint AJAX per la pubblicazione su singoli canali social
  */
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 header('Content-Type: application/json; charset=UTF-8');
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
@@ -35,12 +39,19 @@ try {
             if (empty($text)) {
                 throw new Exception('Testo post Facebook mancante.');
             }
-            require_once __DIR__ . '/includes/buffer_service.php';
-            $res = publishToBuffer($text, 'facebook', $link, $config);
+
+            $images = $_SESSION['last_social_images'] ?? [];
+            $imagePath = $images['hd_image'] ?? ($images['fb_image'] ?? ($images['ig_image'] ?? ''));
+            if ($imagePath === '' || !file_exists($imagePath)) {
+                throw new Exception('Immagine HD generata non disponibile. Rigenera prima il contenuto social.');
+            }
+
+            require_once __DIR__ . '/includes/facebook_page_service.php';
+            $res = publishPhotoToFacebookPage($imagePath, $text, $link, $config);
             $result = [
                 'ok'      => true,
                 'channel' => 'facebook',
-                'message' => 'Post pubblicato con successo su Facebook (Buffer)!',
+                'message' => 'Post con immagine pubblicato su Facebook tramite Meta API!',
                 'detail'  => $res
             ];
             break;
@@ -78,17 +89,14 @@ try {
             if (empty($text)) {
                 throw new Exception('Testo post LinkedIn mancante.');
             }
-            $published = false;
             $res = null;
             try {
                 require_once __DIR__ . '/includes/buffer_service.php';
                 $res = publishToBuffer($text, 'linkedin', $link, $config);
-                $published = true;
             } catch (Throwable $eBuffer) {
                 if (!empty($config['linkedin_author_urn']) && file_exists($config['linkedin_oauth_token_json'])) {
                     require_once __DIR__ . '/includes/linkedin_service.php';
                     $res = publishToLinkedIn($text, $link, $config);
-                    $published = true;
                 } else {
                     throw new Exception("LinkedIn non configurato: " . $eBuffer->getMessage());
                 }
