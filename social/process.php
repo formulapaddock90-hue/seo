@@ -20,9 +20,73 @@ require_once __DIR__ . '/includes/google_service.php';
 $config = require __DIR__ . '/config.php';
 $cloudUrl = $config['reel_cloud_url'] ?? 'https://reel-engine-dcnr.onrender.com';
 
-function renderError(string $message): void
+function requestExpectsJson(): bool
 {
+    $format = strtolower(trim((string)($_GET['format'] ?? '')));
+    $contentType = strtolower((string)($_SERVER['CONTENT_TYPE'] ?? ''));
+    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+    $requestedWith = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+    $fetchDest = strtolower((string)($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+    if ($format === 'json') return true;
+    if (strpos($contentType, 'application/json') !== false) return true;
+    if (strpos($accept, 'application/json') !== false) return true;
+    if ($requestedWith === 'xmlhttprequest') return true;
+
+    // I fetch() moderni usano normalmente Sec-Fetch-Dest: empty,
+    // mentre l'invio classico del form usa Sec-Fetch-Dest: document.
+    if ($method === 'POST' && $fetchDest === 'empty') return true;
+
+    return false;
+}
+
+function jsonResponse(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store');
+
+    $encoded = json_encode(
+        $payload,
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR
+    );
+
+    if ($encoded === false) {
+        $encoded = '{"ok":false,"error":"Errore durante la codifica della risposta JSON."}';
+    }
+
+    echo $encoded;
+    exit;
+}
+
+function readJsonPayload(): array
+{
+    $contentType = strtolower((string)($_SERVER['CONTENT_TYPE'] ?? ''));
+    if (strpos($contentType, 'application/json') === false) return [];
+
+    $raw = trim((string)file_get_contents('php://input'));
+    if ($raw === '') return [];
+
+    $data = json_decode($raw, true);
+    if (!is_array($data)) {
+        throw new Exception('Payload JSON non valido.');
+    }
+
+    return $data;
+}
+
+function renderError(string $message, bool $asJson = false): void
+{
+    if ($asJson) {
+        jsonResponse([
+            'ok' => false,
+            'error' => $message,
+        ], 500);
+    }
+
     http_response_code(500);
+    header('Content-Type: text/html; charset=UTF-8');
     echo '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Errore</title>';
     echo '<style>body{font-family:sans-serif;background:#1a0a0a;color:#fff;padding:40px;}
     .box{background:#2a1010;border:1px solid #b33;padding:20px;border-radius:8px;max-width:700px;}
@@ -44,11 +108,21 @@ function loadFreshLiveSocialContext(): ?array
     return $data;
 }
 
+$expectsJson = requestExpectsJson();
+
 try {
-    $input = trim($_GET['url'] ?? trim($_POST['input_text'] ?? ''));
+    $jsonPayload = readJsonPayload();
+
+    $input = trim((string)(
+        $_GET['url']
+        ?? $_POST['input_text']
+        ?? $jsonPayload['input_text']
+        ?? $jsonPayload['url']
+        ?? ''
+    ));
 
     if ($input === '') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($_GET['url'])) {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' && empty($_GET['url']) && !$expectsJson) {
             header('Location: index.php');
             exit;
         }
@@ -58,7 +132,12 @@ try {
     $sourceUrl = '';
     $title = '';
     $sourceText = '';
-    $articleUrlInput = trim($_POST['article_url'] ?? $_GET['article_url'] ?? '');
+    $articleUrlInput = trim((string)(
+        $_POST['article_url']
+        ?? $_GET['article_url']
+        ?? $jsonPayload['article_url']
+        ?? ''
+    ));
 
     $bgImageUrl = null;
     if (isValidUrl($input)) {
@@ -191,6 +270,27 @@ try {
     $_SESSION['last_live_social_images'] = $liveImages;
     $_SESSION['last_live_social_drive'] = $liveDrive;
 
+    if ($expectsJson) {
+        jsonResponse([
+            'ok' => true,
+            'title' => $title,
+            'source_url' => $sourceUrl,
+            'content' => $content,
+            'reel_url' => $reelTargetUrl,
+            'redirect' => ($liveContext && $liveImages) ? 'output-live.php' : 'output.php',
+            'live' => (bool)($liveContext && $liveImages),
+            'drive' => [
+                'hd_image' => $hdImageDrive['view_link'] ?? null,
+                'live' => $liveDrive,
+            ],
+            'warnings' => [
+                'sheet' => $sheetError,
+                'drive' => $driveErrors,
+                'buffer' => $bufferErrors,
+            ],
+        ]);
+    }
+
     // In modalità Live apre il pannello dedicato con le tre infografiche.
     if ($liveContext && $liveImages) {
         require __DIR__ . '/output-live.php';
@@ -200,5 +300,5 @@ try {
     exit;
 
 } catch (Throwable $e) {
-    renderError($e->getMessage());
+    renderError($e->getMessage(), $expectsJson);
 }
