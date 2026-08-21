@@ -8,14 +8,13 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 ini_set('max_execution_time', 300);
-// In produzione non mostrare warning/deprecation sopra l'interfaccia.
-// Gli errori applicativi vengono comunque gestiti da renderError().
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
 ini_set('display_errors', 0);
 
 require_once __DIR__ . '/includes/url_extractor.php';
 require_once __DIR__ . '/includes/ai_generator.php';
 require_once __DIR__ . '/includes/image_generator.php';
+require_once __DIR__ . '/includes/live_image_generator.php';
 require_once __DIR__ . '/includes/google_service.php';
 
 $config = require __DIR__ . '/config.php';
@@ -32,6 +31,17 @@ function renderError(string $message): void
         . htmlspecialchars($message) . '</pre>';
     echo '<p><a href="index.php">&larr; Torna indietro</a></p></div></body></html>';
     exit;
+}
+
+function loadFreshLiveSocialContext(): ?array
+{
+    $file = dirname(__DIR__) . '/storage/live-social-context.json';
+    if (!is_file($file)) return null;
+    $data = json_decode((string)file_get_contents($file), true);
+    if (!is_array($data) || empty($data['live'])) return null;
+    $savedAt = (int)($data['saved_at'] ?? 0);
+    if ($savedAt <= 0 || (time() - $savedAt) > 1800) return null;
+    return $data;
 }
 
 try {
@@ -81,19 +91,38 @@ try {
     // STEP 3: Generazione testi AI (Gemini)
     $content = generateSocialContent($sourceText, $title, $config);
 
-    // STEP 4: Generazione infografica Formula Paddock Visual Studio HD (1080x1080)
+    // STEP 4: Infografica standard + eventuali tre grafiche Sessione Live
     $slug = 'post_' . date('Ymd_His') . '_' . substr(md5($title . microtime()), 0, 6);
     $images = generateAllInfographics($content, $slug, $config, $bgImageUrl);
 
-    // STEP 5: Upload Infografica su Google Drive (Folder ID: 1zDqtrdpLBxC7q_2kB42tZ9f9_eyABz5K)
+    $liveContext = loadFreshLiveSocialContext();
+    $liveImages = [];
+    if ($liveContext) {
+        $liveImages = generateLiveSessionInfographics($liveContext, $config);
+    }
+
+    // STEP 5: Upload infografiche su Google Drive
     $driveErrors = [];
     $hdImageDrive = null;
+    $liveDrive = [];
 
     try {
         $hdImageDrive = uploadFileToDrive($images['hd_image'] ?? $images['fb_image'], 'image/jpeg', $config);
     } catch (Throwable $e) {
         $driveErrors[] = 'Upload infografica Visual Studio HD: ' . $e->getMessage();
     }
+
+    if ($liveImages) {
+        foreach (['top3', 'ferrari', 'top10'] as $key) {
+            if (empty($liveImages[$key]) || !is_file($liveImages[$key])) continue;
+            try {
+                $liveDrive[$key] = uploadFileToDrive($liveImages[$key], 'image/jpeg', $config);
+            } catch (Throwable $e) {
+                $driveErrors[] = 'Upload infografica Live ' . $key . ': ' . $e->getMessage();
+            }
+        }
+    }
+
     $fbImageDrive = $hdImageDrive;
     $igImageDrive = $hdImageDrive;
 
@@ -115,7 +144,7 @@ try {
         $sheetError = $e->getMessage();
     }
 
-    // STEP 7: Pubblicazione automatica opzionale (disattivata di default; i pulsanti pubblicano su richiesta)
+    // STEP 7: Pubblicazione automatica opzionale
     $bufferResults = [];
     $bufferErrors = [];
 
@@ -144,10 +173,9 @@ try {
         }
     }
 
-    // Target URL del Reel Engine Cloud con articolo pre-caricato
     $reelTargetUrl = $cloudUrl . '/?url=' . urlencode($sourceUrl !== '' ? $sourceUrl : 'https://www.formulapaddock.it');
 
-    // Salvataggio in sessione per output.php
+    // Salvataggio in sessione per output/publish_ajax
     $_SESSION['last_social_content'] = $content;
     $_SESSION['last_social_images'] = $images;
     $_SESSION['last_social_title'] = $title;
@@ -159,9 +187,16 @@ try {
     $_SESSION['last_social_hd_drive'] = $hdImageDrive;
     $_SESSION['last_social_fb_drive'] = $fbImageDrive;
     $_SESSION['last_social_ig_drive'] = $igImageDrive;
+    $_SESSION['last_live_social_context'] = $liveContext;
+    $_SESSION['last_live_social_images'] = $liveImages;
+    $_SESSION['last_live_social_drive'] = $liveDrive;
 
-    // Renderizza la dashboard output.php
-    require __DIR__ . '/output.php';
+    // In modalità Live apre il pannello dedicato con le tre infografiche.
+    if ($liveContext && $liveImages) {
+        require __DIR__ . '/output-live.php';
+    } else {
+        require __DIR__ . '/output.php';
+    }
     exit;
 
 } catch (Throwable $e) {
