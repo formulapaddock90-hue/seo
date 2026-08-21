@@ -1,51 +1,43 @@
 <?php
 /**
- * image_generator.php — Formula Paddock Visual Studio HD (1080x1080)
- * Generatore grafico ad alto impatto per social media (Facebook & Instagram).
+ * image_generator.php — Formula Paddock Editorial Visual System
+ * Tre template automatici: Breaking News, Race Result, Analisi.
  */
 
 function sanitizeTextForGd(string $text): string
 {
-    $replacements = [
+    return strtr($text, [
         'è' => "e'", 'é' => "e'", 'à' => "a'", 'á' => "a'",
         'ì' => "i'", 'í' => "i'", 'ò' => "o'", 'ó' => "o'",
         'ù' => "u'", 'ú' => "u'", 'È' => "E'", 'À' => "A'",
         '’' => "'", '“' => '"', '”' => '"', '«' => '"', '»' => '"',
         '—' => '-', '–' => '-'
-    ];
-    return strtr($text, $replacements);
+    ]);
 }
 
 function loadRemoteOrLocalImage(string $source)
 {
-    if (empty($source)) {
-        return null;
-    }
-
+    if ($source === '') return null;
     $imageData = null;
     if (filter_var($source, FILTER_VALIDATE_URL)) {
         $ch = curl_init($source);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            CURLOPT_USERAGENT => 'FormulaPaddock/1.0',
         ]);
         $imageData = curl_exec($ch);
         curl_close($ch);
-    } elseif (file_exists($source)) {
+    } elseif (is_file($source)) {
         $imageData = file_get_contents($source);
     }
-
-    if (!$imageData) {
-        return null;
-    }
-
-    return @imagecreatefromstring($imageData);
+    return $imageData ? @imagecreatefromstring($imageData) : null;
 }
 
-function drawRoundedRect($img, $x, $y, $w, $h, $radius, $color)
+function drawRoundedRect($img, int $x, int $y, int $w, int $h, int $radius, int $color): void
 {
     imagefilledrectangle($img, $x + $radius, $y, $x + $w - $radius, $y + $h, $color);
     imagefilledrectangle($img, $x, $y + $radius, $x + $w, $y + $h - $radius, $color);
@@ -53,6 +45,86 @@ function drawRoundedRect($img, $x, $y, $w, $h, $radius, $color)
     imagefilledellipse($img, $x + $w - $radius, $y + $radius, $radius * 2, $radius * 2, $color);
     imagefilledellipse($img, $x + $radius, $y + $h - $radius, $radius * 2, $radius * 2, $color);
     imagefilledellipse($img, $x + $w - $radius, $y + $h - $radius, $radius * 2, $radius * 2, $color);
+}
+
+function wrapTextTtf(string $text, string $fontPath, int $fontSize, int $maxWidth): array
+{
+    $words = preg_split('/\s+/u', trim($text));
+    $lines = [];
+    $current = '';
+    foreach ($words as $word) {
+        if ($word === '') continue;
+        $test = $current === '' ? $word : $current . ' ' . $word;
+        $box = imagettfbbox($fontSize, 0, $fontPath, $test);
+        $textWidth = abs($box[2] - $box[0]);
+        if ($textWidth > $maxWidth && $current !== '') {
+            $lines[] = $current;
+            $current = $word;
+        } else {
+            $current = $test;
+        }
+    }
+    if ($current !== '') $lines[] = $current;
+    return $lines;
+}
+
+function wrapTextGd(string $text, int $gdFont, int $maxWidth): array
+{
+    $maxChars = max(10, (int)($maxWidth / max(1, imagefontwidth($gdFont))));
+    return preg_split('/\n/', wordwrap($text, $maxChars, "\n", true));
+}
+
+function drawCoverImage($canvas, $source, int $x, int $y, int $w, int $h): bool
+{
+    if (!$source) return false;
+    $sw = imagesx($source); $sh = imagesy($source);
+    if ($sw <= 0 || $sh <= 0) return false;
+    $srcRatio = $sw / $sh; $dstRatio = $w / $h;
+    if ($srcRatio > $dstRatio) {
+        $cropH = $sh; $cropW = (int)round($sh * $dstRatio);
+        $srcX = (int)(($sw - $cropW) / 2); $srcY = 0;
+    } else {
+        $cropW = $sw; $cropH = (int)round($sw / $dstRatio);
+        $srcX = 0; $srcY = max(0, (int)(($sh - $cropH) * 0.32));
+    }
+    imagecopyresampled($canvas, $source, $x, $y, $srcX, $srcY, $w, $h, $cropW, $cropH);
+    return true;
+}
+
+function detectInfographicTemplate(array $content): string
+{
+    $explicit = strtolower(trim((string)($content['infografica_template'] ?? '')));
+    if (in_array($explicit, ['breaking', 'race', 'analysis'], true)) return $explicit;
+    $haystack = mb_strtolower(implode(' ', [
+        (string)($content['categoria'] ?? ''),
+        (string)($content['infografica_titolo'] ?? ''),
+        (string)($content['infografica_sottotitolo'] ?? ''),
+    ]));
+    foreach (['analisi','tecnica','strategia','approfondimento','perche','perché','confronto','dati'] as $kw) {
+        if (mb_strpos($haystack, $kw) !== false) return 'analysis';
+    }
+    foreach (['gara','risultato','vittoria','podio','gp ','gran premio','classifica','qualifiche','pole'] as $kw) {
+        if (mb_strpos($haystack, $kw) !== false) return 'race';
+    }
+    return 'breaking';
+}
+
+function templateLabel(string $template): string
+{
+    if ($template === 'race') return 'RACE RESULT';
+    if ($template === 'analysis') return 'ANALISI';
+    return 'BREAKING NEWS';
+}
+
+function drawTextBlockTtf($img, array $lines, int $x, int $y, int $fontSize, int $lineHeight, string $font, array $colors): int
+{
+    foreach ($lines as $i => $line) {
+        $color = $colors[min($i, count($colors) - 1)];
+        $shadow = imagecolorallocatealpha($img, 0, 0, 0, 45);
+        imagettftext($img, $fontSize, 0, $x + 2, $y + ($i * $lineHeight) + 2, $shadow, $font, $line);
+        imagettftext($img, $fontSize, 0, $x, $y + ($i * $lineHeight), $color, $font, $line);
+    }
+    return $y + (count($lines) * $lineHeight);
 }
 
 function generateInfographic(
@@ -63,7 +135,9 @@ function generateInfographic(
     string $subtitle,
     string $categoria,
     array $config,
-    ?string $bgImageUrl = null
+    ?string $bgImageUrl = null,
+    string $template = 'breaking',
+    array $facts = []
 ): string {
     $img = imagecreatetruecolor($width, $height);
     imagealphablending($img, true);
@@ -72,270 +146,151 @@ function generateInfographic(
     $title = sanitizeTextForGd($title);
     $subtitle = sanitizeTextForGd($subtitle);
     $categoria = sanitizeTextForGd($categoria);
+    $template = in_array($template, ['breaking','race','analysis'], true) ? $template : 'breaking';
 
-    // 1. CARICAMENTO E RENDERING DELLO SFONDO FOTOGRAFICO
-    $bgImg = !empty($bgImageUrl) ? loadRemoteOrLocalImage($bgImageUrl) : null;
+    $black = imagecolorallocate($img, 7, 7, 9);
+    $panel = imagecolorallocate($img, 12, 12, 15);
+    $panel2 = imagecolorallocate($img, 21, 21, 25);
+    $white = imagecolorallocate($img, 250, 250, 250);
+    $gray = imagecolorallocate($img, 195, 195, 200);
+    $red = imagecolorallocate($img, 225, 6, 0);
+    $yellow = imagecolorallocate($img, 255, 209, 0);
+    $border = imagecolorallocate($img, 60, 60, 66);
+    imagefill($img, 0, 0, $black);
 
-    if ($bgImg) {
-        $origW = imagesx($bgImg);
-        $origH = imagesy($bgImg);
-
-        // Aspect Fill con ritaglio centrato
-        $ratio = max($width / $origW, $height / $origH);
-        $newW = (int)($origW * $ratio);
-        $newH = (int)($origH * $ratio);
-        $srcX = (int)(($newW - $width) / (2 * $ratio));
-        $srcY = (int)(($newH - $height) / (3 * $ratio)); // leggermente spostato verso l'alto per inquadrare bene auto/pilota
-
-        imagecopyresampled($img, $bgImg, 0, 0, $srcX, $srcY, $width, $height, (int)($width / $ratio), (int)($height / $ratio));
-        imagedestroy($bgImg);
-    } else {
-        // Sfondo dinamico ad alta definizione F1 Dark Carbon
-        $colorTop    = [18, 12, 16];
-        $colorBottom = [80, 8, 14];
-
-        for ($y = 0; $y < $height; $y++) {
-            $ratio = $y / $height;
-            $r = (int) ($colorTop[0] + ($colorBottom[0] - $colorTop[0]) * $ratio);
-            $g = (int) ($colorTop[1] + ($colorBottom[1] - $colorTop[1]) * $ratio);
-            $b = (int) ($colorTop[2] + ($colorBottom[2] - $colorTop[2]) * $ratio);
-            $color = imagecolorallocate($img, $r, $g, $b);
-            imageline($img, 0, $y, $width, $y, $color);
-        }
-
-        // Texture a trama sportiva / carbon fiber
-        $gridColor = imagecolorallocatealpha($img, 255, 255, 255, 123);
-        for ($i = - $height; $i < $width + $height; $i += 32) {
-            imageline($img, $i, 0, $i + $height, $height, $gridColor);
-        }
-    }
-
-    // 2. GRADIENTE SCRIM DARK PER CONTRASTO PERFETTO DEL TESTO (Da metà immagine fino a giù)
-    $scrimStartY = (int) ($height * 0.36);
-    for ($y = $scrimStartY; $y < $height; $y++) {
-        $progress = ($y - $scrimStartY) / ($height - $scrimStartY);
-        // Alpha da 127 (trasparente) a 10 (quasi opaco 92%)
-        $alpha = (int) (127 - ($progress * 118));
-        $alpha = max(0, min(127, $alpha));
-        
-        $r = (int) (8 * (1 - $progress));
-        $g = (int) (4 * (1 - $progress));
-        $b = (int) (6 * (1 - $progress));
-        
-        $scrimColor = imagecolorallocatealpha($img, $r, $g, $b, $alpha);
-        imageline($img, 0, $y, $width, $y, $scrimColor);
-    }
-
-    // Top overlay per far risaltare il logo e la categoria in alto
-    for ($y = 0; $y < 160; $y++) {
-        $alpha = (int) (65 + ($y / 160) * 62);
-        $topDark = imagecolorallocatealpha($img, 0, 0, 0, $alpha);
-        imageline($img, 0, $y, $width, $y, $topDark);
-    }
-
-    // Colori
-    $white     = imagecolorallocate($img, 255, 255, 255);
-    $black     = imagecolorallocate($img, 0, 0, 0);
-    $shadow    = imagecolorallocatealpha($img, 0, 0, 0, 40);
-    $yellow    = imagecolorallocate($img, 255, 209, 0);
-    $red       = imagecolorallocate($img, 225, 6, 0);
-    $darkBadge = imagecolorallocatealpha($img, 15, 15, 22, 30);
-    $lightGray = imagecolorallocate($img, 220, 220, 225);
-
-    $fontBold    = $config['font_bold'] ?? (__DIR__ . '/../fonts/Montserrat-Bold.ttf');
+    $fontBold = $config['font_bold'] ?? (__DIR__ . '/../fonts/Montserrat-Bold.ttf');
     $fontRegular = $config['font_regular'] ?? (__DIR__ . '/../fonts/Montserrat-Regular.ttf');
-    $useTtf = file_exists($fontBold) && file_exists($fontRegular);
+    $useTtf = is_file($fontBold) && is_file($fontRegular);
 
-    // 3. TOP BRAND BAR (Logo Badge & Categoria Pill)
-    $brandText = 'FORMULA PADDOCK';
-    $catText   = mb_strtoupper($categoria !== '' ? $categoria : 'F1 NEWS');
-
+    imagefilledrectangle($img, 0, 0, $width, 150, $black);
+    imagefilledrectangle($img, 250, 54, 390, 57, $red);
+    imagefilledrectangle($img, $width - 390, 54, $width - 250, 57, $red);
     if ($useTtf) {
-        // Badge Rosso Logo a Sinistra
-        drawRoundedRect($img, 45, 45, 260, 48, 10, $red);
-        imagettftext($img, 15, 0, 65, 76, $white, $fontBold, $brandText);
-
-        // Badge Categoria a Destra
-        $catBox = imagettfbbox(13, 0, $fontBold, $catText);
-        $catW = abs($catBox[2] - $catBox[0]) + 36;
-        $catX = $width - 45 - $catW;
-        drawRoundedRect($img, (int)$catX, 45, (int)$catW, 48, 10, $darkBadge);
-        imagettftext($img, 13, 0, (int)($catX + 18), 75, $yellow, $fontBold, $catText);
+        $brand = 'FORMULA PADDOCK';
+        $bb = imagettfbbox(25, 0, $fontBold, $brand);
+        $bw = abs($bb[2] - $bb[0]);
+        imagettftext($img, 25, 0, (int)(($width - $bw) / 2), 76, $white, $fontBold, $brand);
     } else {
-        imagestring($img, 5, 50, 50, $brandText, $yellow);
-        imagestring($img, 4, $width - 160, 50, $catText, $white);
+        imagestring($img, 5, (int)($width / 2 - 80), 58, 'FORMULA PADDOCK', $white);
     }
 
-    // 4. STRISCIA RACING ACCENT ANGOLATA SOPRA IL TESTO
-    $accentY = (int) ($height * 0.44);
-    $points = [
-        45, $accentY + 8,
-        140, $accentY + 8,
-        160, $accentY,
-        65, $accentY
-    ];
-    imagefilledpolygon($img, $points, $red);
-
-    $pointsYellow = [
-        168, $accentY,
-        210, $accentY,
-        190, $accentY + 8,
-        148, $accentY + 8
-    ];
-    imagefilledpolygon($img, $pointsYellow, $yellow);
-
-    // 5. TITOLO NOTIZIA IN GRASSETTO AD ALTO IMPATTO
-    $titleFontSize = 44;
-    $maxWidth = $width - 100;
-
+    $label = templateLabel($template);
+    $badgeY = 108;
+    $badgeW = $template === 'breaking' ? 340 : ($template === 'analysis' ? 250 : 300);
+    $badgePoints = [30,$badgeY,30+$badgeW,$badgeY,30+$badgeW-24,$badgeY+48,30,$badgeY+48];
+    imagefilledpolygon($img, $badgePoints, 4, $red);
+    imagefilledrectangle($img, 30 + $badgeW - 24, $badgeY + 34, 30 + $badgeW - 10, $badgeY + 48, $yellow);
     if ($useTtf) {
-        $lines = wrapTextTtf(mb_strtoupper($title), $fontBold, $titleFontSize, $maxWidth);
-        if (count($lines) > 4) {
-            $titleFontSize = 38;
-            $lines = wrapTextTtf(mb_strtoupper($title), $fontBold, $titleFontSize, $maxWidth);
-        }
-        
-        $lineHeight = (int) ($titleFontSize * 1.30);
-        $startY = $accentY + 58;
-
-        foreach ($lines as $i => $line) {
-            $curY = $startY + ($i * $lineHeight);
-            // Ombra per massima leggibilità
-            imagettftext($img, $titleFontSize, 0, 48, $curY + 3, $black, $fontBold, $line);
-            imagettftext($img, $titleFontSize, 0, 47, $curY + 2, $shadow, $fontBold, $line);
-            // Testo bianco principale
-            imagettftext($img, $titleFontSize, 0, 45, $curY, $white, $fontBold, $line);
-        }
-        $afterTitleY = $startY + (count($lines) * $lineHeight) + 20;
-    } else {
-        $lines = wrapTextGd($title, 5, $maxWidth);
-        $lineHeight = 22;
-        $startY = $accentY + 40;
-        foreach ($lines as $i => $line) {
-            imagestring($img, 5, 45, $startY + $i * $lineHeight, $line, $white);
-        }
-        $afterTitleY = $startY + count($lines) * $lineHeight + 15;
+        imagettftext($img, 18, 0, 58, $badgeY + 33, $white, $fontBold, $label);
+        imagettftext($img, 12, 0, $width - 165, $badgeY + 31, $gray, $fontRegular, 'FORMULA PADDOCK');
     }
 
-    // 6. SOTTOTITOLO CON BARRA ACCENTO GIALLA
+    $heroY = 150; $heroH = 410;
+    $hero = $bgImageUrl ? loadRemoteOrLocalImage($bgImageUrl) : null;
+    if (!$hero || !drawCoverImage($img, $hero, 0, $heroY, $width, $heroH)) {
+        for ($y = $heroY; $y < $heroY + $heroH; $y++) {
+            $p = ($y - $heroY) / $heroH;
+            $c = imagecolorallocate($img, (int)(16 + 35 * $p), (int)(15 + 3 * $p), (int)(19 + 5 * $p));
+            imageline($img, 0, $y, $width, $y, $c);
+        }
+        $grid = imagecolorallocatealpha($img, 255, 255, 255, 120);
+        for ($i = -400; $i < $width + 400; $i += 45) imageline($img, $i, $heroY, $i + 420, $heroY + $heroH, $grid);
+    }
+    if ($hero) imagedestroy($hero);
+
+    for ($i = 0; $i < 130; $i++) {
+        $alpha = (int)(127 - ($i / 130) * 112);
+        $c = imagecolorallocatealpha($img, 0, 0, 0, max(8, $alpha));
+        imageline($img, 0, $heroY + $heroH - 130 + $i, $width, $heroY + $heroH - 130 + $i, $c);
+    }
+
+    imagefilledrectangle($img, 0, 550, $width, $height, $panel);
+    imagefilledrectangle($img, 40, 550, $width - 40, 553, $red);
+
+    $titleUpper = mb_strtoupper($title !== '' ? $title : 'FORMULA 1 NEWS');
+    $titleSize = $template === 'race' ? 47 : 50;
+    if (mb_strlen($titleUpper) > 46) $titleSize = 43;
+    if (mb_strlen($titleUpper) > 64) $titleSize = 38;
+    $titleStartY = 630;
+    if ($useTtf) {
+        $lines = array_slice(wrapTextTtf($titleUpper, $fontBold, $titleSize, $width - 120), 0, 3);
+        $titleEnd = drawTextBlockTtf($img, $lines, 64, $titleStartY, $titleSize, (int)($titleSize * 1.18), $fontBold, [$white,$red,$red]);
+    } else {
+        $lines = array_slice(wrapTextGd($titleUpper, 5, $width - 120), 0, 3);
+        foreach ($lines as $i => $line) imagestring($img, 5, 64, $titleStartY + $i * 24, $line, $i === 0 ? $white : $red);
+        $titleEnd = $titleStartY + count($lines) * 24;
+    }
+
+    $subtitleY = $titleEnd + 8;
     if ($subtitle !== '') {
-        $subFontSize = 21;
+        imagefilledrectangle($img, 64, $subtitleY - 22, 69, $subtitleY + 45, $red);
         if ($useTtf) {
-            $subLines = wrapTextTtf($subtitle, $fontRegular, $subFontSize, $maxWidth - 30);
-            $subLineHeight = (int) ($subFontSize * 1.45);
-            $totalSubH = count($subLines) * $subLineHeight;
-
-            // Barra verticale gialla a sinistra del sottotitolo
-            imagefilledrectangle($img, 45, $afterTitleY - 18, 50, $afterTitleY - 18 + $totalSubH, $yellow);
-
-            foreach ($subLines as $i => $line) {
-                $curSubY = $afterTitleY + ($i * $subLineHeight);
-                imagettftext($img, $subFontSize, 0, 64, $curSubY + 2, $black, $fontRegular, $line);
-                imagettftext($img, $subFontSize, 0, 62, $curSubY, $lightGray, $fontRegular, $line);
-            }
+            $subLines = array_slice(wrapTextTtf($subtitle, $fontRegular, 18, $width - 155), 0, 2);
+            foreach ($subLines as $i => $line) imagettftext($img, 18, 0, 86, $subtitleY + $i * 26, $gray, $fontRegular, $line);
         } else {
-            $subLines = wrapTextGd($subtitle, 4, $maxWidth);
-            foreach ($subLines as $i => $line) {
-                imagestring($img, 4, 60, $afterTitleY + $i * 18, $line, $lightGray);
-            }
+            imagestring($img, 4, 86, $subtitleY - 14, $subtitle, $gray);
         }
     }
 
-    // 7. FOOTER BROADCAST / WATERMARK IN BASSO
-    // Linea rossa di fondo a tutta larghezza
-    imagefilledrectangle($img, 0, $height - 8, $width, $height, $red);
+    $factsY = max(865, $subtitleY + 72);
+    $gap = 16;
+    $boxW = (int)(($width - 128 - ($gap * 2)) / 3);
+    $boxH = 132;
+    $defaultLabels = $template === 'analysis'
+        ? ['CHIAVE 1','CHIAVE 2','CHIAVE 3']
+        : ($template === 'race' ? ['RISULTATO','GARA','DATO CHIAVE'] : ['PUNTO 1','PUNTO 2','PUNTO 3']);
 
-    $footerBrand = 'FORMULAPADDOCK.IT';
-    $footerTag   = 'VISUAL STUDIO HD  •  F1 INSIDER';
+    for ($i = 0; $i < 3; $i++) {
+        $x = 64 + $i * ($boxW + $gap);
+        drawRoundedRect($img, $x, $factsY, $boxW, $boxH, 10, $panel2);
+        imagerectangle($img, $x, $factsY, $x + $boxW, $factsY + $boxH, $border);
+        $labelText = sanitizeTextForGd(trim((string)($facts[$i]['label'] ?? '')) ?: $defaultLabels[$i]);
+        $valueText = sanitizeTextForGd(trim((string)($facts[$i]['value'] ?? '')) ?: 'Formula Paddock');
+        if ($useTtf) {
+            imagettftext($img, 13, 0, $x + 16, $factsY + 28, $template === 'race' ? $yellow : $red, $fontBold, mb_strtoupper($labelText));
+            $valueLines = array_slice(wrapTextTtf($valueText, $fontBold, 16, $boxW - 32), 0, 3);
+            foreach ($valueLines as $j => $line) imagettftext($img, 16, 0, $x + 16, $factsY + 58 + $j * 21, $white, $fontBold, $line);
+        } else {
+            imagestring($img, 4, $x + 12, $factsY + 12, $labelText, $yellow);
+            imagestring($img, 3, $x + 12, $factsY + 42, $valueText, $white);
+        }
+    }
 
+    $footerY = $height - 45;
+    imagefilledrectangle($img, 64, $footerY - 2, 320, $footerY, $red);
+    imagefilledrectangle($img, $width - 320, $footerY - 2, $width - 64, $footerY, $red);
     if ($useTtf) {
-        imagettftext($img, 16, 0, 48, $height - 30, $black, $fontBold, $footerBrand);
-        imagettftext($img, 16, 0, 45, $height - 32, $yellow, $fontBold, $footerBrand);
-
-        $tagBox = imagettfbbox(12, 0, $fontBold, $footerTag);
-        $tagW = abs($tagBox[2] - $tagBox[0]);
-        imagettftext($img, 12, 0, (int)($width - 45 - $tagW), $height - 32, $lightGray, $fontBold, $footerTag);
-    } else {
-        imagestring($img, 5, 45, $height - 40, $footerBrand, $yellow);
-        imagestring($img, 4, $width - 240, $height - 40, $footerTag, $lightGray);
+        $tag = 'PASSIONE. ANALISI. VELOCITA.';
+        $tb = imagettfbbox(12, 0, $fontRegular, $tag);
+        $tw = abs($tb[2] - $tb[0]);
+        imagettftext($img, 12, 0, (int)(($width - $tw) / 2), $footerY + 6, $gray, $fontRegular, $tag);
     }
 
-    if (!is_dir(dirname($outputPath))) {
-        mkdir(dirname($outputPath), 0777, true);
-    }
-    imagejpeg($img, $outputPath, 92);
+    if (!is_dir(dirname($outputPath))) mkdir(dirname($outputPath), 0777, true);
+    imagejpeg($img, $outputPath, 94);
     imagedestroy($img);
-
     return $outputPath;
-}
-
-function wrapTextTtf(string $text, string $fontPath, int $fontSize, int $maxWidth): array
-{
-    $words = preg_split('/\s+/u', trim($text));
-    $lines = [];
-    $current = '';
-
-    foreach ($words as $word) {
-        $test = $current === '' ? $word : $current . ' ' . $word;
-        $box = imagettfbbox($fontSize, 0, $fontPath, $test);
-        $textWidth = abs($box[2] - $box[0]);
-
-        if ($textWidth > $maxWidth && $current !== '') {
-            $lines[] = $current;
-            $current = $word;
-        } else {
-            $current = $test;
-        }
-    }
-    if ($current !== '') {
-        $lines[] = $current;
-    }
-
-    return $lines;
-}
-
-function wrapTextGd(string $text, int $gdFont, int $maxWidth): array
-{
-    $charWidth = imagefontwidth($gdFont);
-    $maxChars = max(10, (int) ($maxWidth / $charWidth));
-
-    $words = preg_split('/\s+/u', trim($text));
-    $lines = [];
-    $current = '';
-
-    foreach ($words as $word) {
-        $test = $current === '' ? $word : $current . ' ' . $word;
-        if (mb_strlen($test) > $maxChars && $current !== '') {
-            $lines[] = $current;
-            $current = $word;
-        } else {
-            $current = $test;
-        }
-    }
-    if ($current !== '') {
-        $lines[] = $current;
-    }
-
-    return $lines;
 }
 
 function generateAllInfographics(array $content, string $slug, array $config, ?string $bgImageUrl = null): array
 {
-    $title    = $content['infografica_titolo'] ?? '';
-    $subtitle = $content['infografica_sottotitolo'] ?? '';
-    $categoria = $content['categoria'] ?? '';
-
-    $hdPath = $config['output_images_dir'] . "/visual_studio_hd.jpg";
-    $fbPath = $config['output_images_dir'] . "/facebook.jpg";
-    $igPath = $config['output_images_dir'] . "/instagram.jpg";
-
-    generateInfographic($hdPath, 1080, 1080, $title, $subtitle, $categoria, $config, $bgImageUrl);
+    $title = (string)($content['infografica_titolo'] ?? '');
+    $subtitle = (string)($content['infografica_sottotitolo'] ?? '');
+    $categoria = (string)($content['categoria'] ?? '');
+    $template = detectInfographicTemplate($content);
+    $facts = [];
+    for ($i = 1; $i <= 3; $i++) {
+        $facts[] = [
+            'label' => (string)($content['infografica_label_' . $i] ?? ''),
+            'value' => (string)($content['infografica_dato_' . $i] ?? ''),
+        ];
+    }
+    $dir = rtrim($config['output_images_dir'], '/\\');
+    $hdPath = $dir . '/visual_studio_hd.jpg';
+    $fbPath = $dir . '/facebook.jpg';
+    $igPath = $dir . '/instagram.jpg';
+    generateInfographic($hdPath, 1080, 1080, $title, $subtitle, $categoria, $config, $bgImageUrl, $template, $facts);
     @copy($hdPath, $fbPath);
     @copy($hdPath, $igPath);
-
-    return [
-        'hd_image' => $hdPath,
-        'fb_image' => $fbPath,
-        'ig_image' => $igPath,
-    ];
+    return ['hd_image' => $hdPath, 'fb_image' => $fbPath, 'ig_image' => $igPath, 'template' => $template];
 }
