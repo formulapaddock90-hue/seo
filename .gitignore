@@ -4,6 +4,11 @@
 cloudflared.exe
 
 # Secret Credentials & Tokens
+.env
+.env.*
+!.env.example
+config/private.php
+api/config/private.php
 google-service-account.json
 oauth-token*
 oauth-client*
