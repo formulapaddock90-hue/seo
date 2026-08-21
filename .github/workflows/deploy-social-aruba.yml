@@ -1,0 +1,43 @@
+name: Deploy Social to Aruba
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "social/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-social-aruba
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy social folder to Aruba via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./social/
+          server-dir: /www.formulapaddock.it/seo/social/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/config.php
+            credentials/**
+            output/**
+            **/credentials/**
+            **/output/**
