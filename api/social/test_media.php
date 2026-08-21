@@ -1,6 +1,6 @@
 <?php
-// Test locale: genera le due infografiche e il reel senza chiamare Claude/Google.
-require_once __DIR__ . '/includes/image_generator.php';
+// Test locale: usa il generatore immagini centrale di social/ e genera il reel senza chiamare Claude/Google.
+require_once __DIR__ . '/../../social/includes/image_generator.php';
 require_once __DIR__ . '/includes/video_generator.php';
 $config = require __DIR__ . '/config.php';
 
