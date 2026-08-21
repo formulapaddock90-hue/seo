@@ -1,0 +1,34 @@
+name: Content Hub checks
+
+on:
+  pull_request:
+    paths:
+      - "api/**/*.php"
+      - "social/**/*.php"
+      - "modules/**/*.js"
+      - "assets/**/*.js"
+      - ".github/workflows/*.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+          done < <(find api social -type f -name '*.php' -print0)
+
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check modules/infografica/module.js
