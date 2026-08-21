@@ -113,11 +113,11 @@ try {
         $sheetError = $e->getMessage();
     }
 
-    // STEP 7: Pubblicazione automatica iniziale (se abilitata da configurazione Buffer)
+    // STEP 7: Pubblicazione automatica opzionale (disattivata di default; i pulsanti pubblicano su richiesta)
     $bufferResults = [];
     $bufferErrors = [];
 
-    if (!empty($config['buffer_access_token'])) {
+    if (!empty($config['buffer_auto_publish']) && !empty($config['buffer_access_token'])) {
         require_once __DIR__ . '/includes/buffer_service.php';
         $linkToPublish = $sourceUrl !== '' ? $sourceUrl : null;
 
