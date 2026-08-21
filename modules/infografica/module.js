@@ -158,7 +158,51 @@
         try { if (typeof loadWordPressMeta === 'function') await loadWordPressMeta(); } catch (_) {}
     }
 
+    function installLivePublishCapture() {
+        document.addEventListener('click', async (event) => {
+            const button = event.target instanceof Element ? event.target.closest('#review-publish') : null;
+            if (!button) return;
+
+            if (button.dataset.fpLiveContextReady === '1') {
+                delete button.dataset.fpLiveContextReady;
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            const live = Boolean(document.getElementById('live-session-check')?.checked);
+            const sessionName = (document.getElementById('live-session-name')?.value || 'Sessione Live').trim();
+            const meetingSelect = document.getElementById('circuito-select-a');
+            const meetingName = (meetingSelect?.selectedOptions?.[0]?.textContent || meetingSelect?.value || '').trim();
+            const rows = Array.isArray(window.state?.sessionResultRows) ? window.state.sessionResultRows : [];
+            const out = document.getElementById('publish-result');
+            const originalText = button.textContent;
+
+            button.disabled = true;
+            button.textContent = live ? '⏳ Preparo grafiche Live...' : '⏳ Preparo pubblicazione...';
+
+            try {
+                await bridgePost('api/live-social-context.php', {
+                    live,
+                    session_name: sessionName,
+                    meeting_name: meetingName,
+                    rows
+                });
+                button.dataset.fpLiveContextReady = '1';
+                button.disabled = false;
+                button.textContent = originalText;
+                button.click();
+            } catch (err) {
+                button.disabled = false;
+                button.textContent = originalText;
+                if (out) out.textContent = `Errore preparazione Social Live: ${err.message}`;
+            }
+        }, true);
+    }
+
     injectBackendSettings();
+    installLivePublishCapture();
     document.addEventListener('DOMContentLoaded', () => {
         injectBackendSettings();
         if (backendKey()) {
