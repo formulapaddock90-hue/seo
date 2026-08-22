@@ -155,8 +155,10 @@ function activateTab(tabId) {
 const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
 
 function redirectToLoginOnce() {
-    if (window.__fpAuthRedirectInProgress) return;
+    const redirectKey = 'fp_auth_redirect_attempted';
+    if (window.__fpAuthRedirectInProgress || sessionStorage.getItem(redirectKey) === '1') return;
     window.__fpAuthRedirectInProgress = true;
+    sessionStorage.setItem(redirectKey, '1');
 
     const loginUrl = new URL('../utility/login.php', window.location.href);
     loginUrl.searchParams.set('redirect', window.location.pathname + window.location.search);
@@ -180,6 +182,7 @@ async function apiGet(path) {
             .filter((v, i, arr) => arr.indexOf(v) === i);
         throw new Error(parts.join(' - ') || `Errore richiesta API (${res.status})`);
     }
+    sessionStorage.removeItem('fp_auth_redirect_attempted');
     return data;
 }
 
@@ -208,6 +211,7 @@ async function apiPost(path, payload) {
             .filter((v, i, arr) => v && arr.indexOf(v) === i);
         throw new Error(parts.join(' — ') || `Errore richiesta API (${res.status})`);
     }
+    sessionStorage.removeItem('fp_auth_redirect_attempted');
     return data;
 }
 

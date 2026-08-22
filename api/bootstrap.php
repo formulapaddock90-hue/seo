@@ -54,16 +54,20 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
     exit;
 }
 
-require_once __DIR__ . '/../auth.php';
+$appConfig = require __DIR__ . '/../config.php';
+$utilityAuthFile = __DIR__ . '/../utility/auth.php';
+require_once is_file($utilityAuthFile) ? $utilityAuthFile : (__DIR__ . '/../auth.php');
 
 $bridgeOrigin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
 $bridgeKey = trim((string)($_SERVER['HTTP_X_CONTENT_HUB_KEY'] ?? ''));
+$bridgePasswordHash = (string)($appConfig['auth_password_hash'] ?? '');
 $bridgeAuthorized = (
     $bridgeOrigin === 'https://formulapaddock90-hue.github.io'
     && $bridgeKey !== ''
-    && AUTH_PASSWORD_HASH !== ''
-    && password_verify($bridgeKey, AUTH_PASSWORD_HASH)
+    && $bridgePasswordHash !== ''
+    && password_verify($bridgeKey, $bridgePasswordHash)
 );
+unset($bridgePasswordHash, $utilityAuthFile);
 
 define('CONTENT_HUB_BRIDGE', $bridgeAuthorized);
 
@@ -71,7 +75,6 @@ if (!$bridgeAuthorized) {
     checkAuth();
 }
 
-$appConfig = require __DIR__ . '/../config.php';
 $sitesConfig = $appConfig;
 
 date_default_timezone_set($appConfig['timezone'] ?? 'UTC');
