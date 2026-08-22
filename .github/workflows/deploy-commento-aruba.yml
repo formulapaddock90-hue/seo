@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "commento.php"
+      - "drivers.json"
       - ".github/workflows/deploy-commento-aruba.yml"
   workflow_dispatch:
 
@@ -28,19 +29,9 @@ jobs:
         run: |
           mkdir -p deploy
           cp commento.php deploy/commento.php
-          # Garantisce che il caricamento dei piloti avvenga prima della creazione del campo.
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('deploy/commento.php')
-          s = p.read_text(encoding='utf-8')
-          old = "window.openEventModal=function(eventType){currentEventType=eventType;"
-          new = "window.openEventModal=async function(eventType){await loadDrivers();currentEventType=eventType;"
-          if old in s and new not in s:
-              s = s.replace(old, new, 1)
-          p.write_text(s, encoding='utf-8')
-          PY
+          cp drivers.json deploy/drivers.json
 
-      - name: Deploy commento.php to Aruba via FTPS
+      - name: Deploy commento bundle to Aruba via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
