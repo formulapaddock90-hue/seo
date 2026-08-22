@@ -30,7 +30,8 @@ set_exception_handler(function($exception) {
 /**
  * Consente al frontend statico GitHub Pages di usare il backend Aruba.
  * La password non viene mai salvata nel repository: il browser la invia
- * nell'header X-Content-Hub-Key e il server la confronta con AUTH_PASSWORD.
+ * nell'header X-Content-Hub-Key e il server la verifica contro l'hash
+ * configurato per l'autenticazione.
  */
 function contentHubApplyCors(): void
 {
@@ -60,8 +61,8 @@ $bridgeKey = trim((string)($_SERVER['HTTP_X_CONTENT_HUB_KEY'] ?? ''));
 $bridgeAuthorized = (
     $bridgeOrigin === 'https://formulapaddock90-hue.github.io'
     && $bridgeKey !== ''
-    && (string)AUTH_PASSWORD !== ''
-    && hash_equals((string)AUTH_PASSWORD, $bridgeKey)
+    && AUTH_PASSWORD_HASH !== ''
+    && password_verify($bridgeKey, AUTH_PASSWORD_HASH)
 );
 
 define('CONTENT_HUB_BRIDGE', $bridgeAuthorized);

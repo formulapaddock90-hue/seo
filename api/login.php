@@ -37,6 +37,7 @@ $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? BASE_PATH . 'index.php';
         <div class="login-error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES) ?>">
         <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
         <label>
             Utente
