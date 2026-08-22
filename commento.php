@@ -77,7 +77,7 @@ let commentaryData=[];let currentEventType=null;let driversData=[];
 // un array JSON serializzato come stringa: gestiamo entrambi i formati.
 async function loadDrivers(){
 try{
-    const response=await fetch('https://www.formulapaddock.it/wp-json/undercutf1/v1/update-standings',{cache:'no-store'});
+    const response=await fetch('https://www.formulapaddock.it/live-data.php?t=' + Date.now()',{cache:'no-store'});
     if(!response.ok)throw new Error('HTTP '+response.status);
     const data=await response.json();
     const rawDrivers=Array.isArray(data?.drivers)?data.drivers:[];
