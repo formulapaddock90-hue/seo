@@ -5,7 +5,69 @@ require_once __DIR__ . '/bootstrap.php';
 $bearerToken = trim((string) ($appConfig['x_bearer_token'] ?? ''));
 $username = trim((string) ($appConfig['x_username'] ?? 'paddock_formula'));
 
+function latestXImageFromPublicTimeline(string $username): array
+{
+    $timelineUrl = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' . rawurlencode($username);
+    $response = httpRequest($timelineUrl, 'GET', ['Accept' => 'text/html'], null, 20);
+    if (($response['status'] ?? 0) !== 200) {
+        return [];
+    }
+
+    if (!preg_match('/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s', (string) ($response['body'] ?? ''), $match)) {
+        return [];
+    }
+
+    $payload = json_decode(html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
+    $entries = $payload['props']['pageProps']['timeline']['entries'] ?? [];
+    if (!is_array($entries)) {
+        return [];
+    }
+
+    $images = [];
+    foreach ($entries as $entry) {
+        $tweet = $entry['content']['tweet'] ?? null;
+        if (!is_array($tweet)) {
+            continue;
+        }
+
+        $createdAt = strtotime((string) ($tweet['created_at'] ?? '')) ?: 0;
+        $postId = (string) ($tweet['id_str'] ?? $tweet['conversation_id_str'] ?? '');
+        $mediaItems = $tweet['extended_entities']['media'] ?? $tweet['entities']['media'] ?? [];
+
+        foreach ($mediaItems as $media) {
+            if (!is_array($media)) {
+                continue;
+            }
+            $imageUrl = (string) ($media['media_url_https'] ?? '');
+            if ($imageUrl === '') {
+                continue;
+            }
+            $images[] = [
+                'created_at' => $createdAt,
+                'image_url' => $imageUrl . '?name=large',
+                'post_url' => $postId === '' ? null : 'https://x.com/' . rawurlencode($username) . '/status/' . rawurlencode($postId),
+            ];
+            break;
+        }
+    }
+
+    usort($images, static fn(array $a, array $b): int => $b['created_at'] <=> $a['created_at']);
+    return $images[0] ?? [];
+}
+
 if ($bearerToken === '') {
+    $publicImage = latestXImageFromPublicTimeline($username);
+    if ($publicImage !== []) {
+        jsonResponse([
+            'ok' => true,
+            'found' => true,
+            'configured' => true,
+            'source' => 'public_timeline',
+            'image_url' => $publicImage['image_url'],
+            'post_url' => $publicImage['post_url'],
+        ]);
+    }
+
     jsonResponse([
         'ok' => true,
         'found' => false,
