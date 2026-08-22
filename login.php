@@ -1,4 +1,14 @@
 <?php
+$utilityLoginFile = __DIR__ . '/utility/login.php';
+if (is_file($utilityLoginFile)) {
+    $redirect = (string) ($_GET['redirect'] ?? $_POST['redirect'] ?? '/seo/index.php');
+    if ($redirect === '' || $redirect[0] !== '/' || str_starts_with($redirect, '//') || preg_match('/[\r\n]/', $redirect)) {
+        $redirect = '/seo/index.php';
+    }
+    header('Location: /seo/utility/login.php?redirect=' . urlencode($redirect));
+    exit;
+}
+
 require __DIR__ . '/auth.php';
 
 if (isAuthenticated()) {

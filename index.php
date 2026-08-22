@@ -1,7 +1,12 @@
 <?php
-require __DIR__ . '/auth.php';
+$utilityAuthFile = __DIR__ . '/utility/auth.php';
+require is_file($utilityAuthFile) ? $utilityAuthFile : (__DIR__ . '/auth.php');
 checkAuth();
 
+$appBasePath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/seo/index.php')), '/') . '/';
+$logoutUrl = is_file(__DIR__ . '/utility/logout.php')
+    ? $appBasePath . 'utility/logout.php'
+    : $appBasePath . 'logout.php';
 $siteConfig = require __DIR__ . '/config.php';
 $styleVersion = @filemtime(__DIR__ . '/assets/css/style.css') ?: time();
 $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
@@ -12,7 +17,7 @@ $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>F1 Content Hub</title>
-	<link rel="stylesheet" href="<?= BASE_PATH ?>assets/css/style.css?v=<?= urlencode((string)$styleVersion) ?>">
+	<link rel="stylesheet" href="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>assets/css/style.css?v=<?= urlencode((string)$styleVersion) ?>">
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -20,10 +25,10 @@ $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
 	<div class="header-inner">
 		<h1>⚡ F1 Content Hub</h1>
 		<div class="header-actions">
-			<a href="<?= BASE_PATH ?>commento.php" class="btn-settings" title="Commento" style="text-decoration:none">💬</a>
-			<a href="<?= BASE_PATH ?>social/" class="btn-settings" title="Social" style="text-decoration:none">📣</a>
+			<a href="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>commento.php" class="btn-settings" title="Commento" style="text-decoration:none">💬</a>
+			<a href="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>social/" class="btn-settings" title="Social" style="text-decoration:none">📣</a>
 			<button type="button" id="open-settings" class="btn-settings" title="Impostazioni">⚙️</button>
-			<a href="<?= BASE_PATH ?>logout.php" class="btn-settings" title="Esci" style="text-decoration:none">🚪</a>
+			<a href="<?= htmlspecialchars($logoutUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn-settings" title="Esci" style="text-decoration:none">🚪</a>
 		</div>
 	</div>
 </header>
@@ -62,15 +67,15 @@ $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
 
 <?php include __DIR__ . '/modules/settings/view.php'; ?>
 
-<script src="<?= BASE_PATH ?>modules/contenuto/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/immagini/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/pirelli/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/wikipedia/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/postgara/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/postgara/final-standings.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/revisione/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>assets/js/app.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/infografica/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
-<script src="<?= BASE_PATH ?>modules/grafici/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/contenuto/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/immagini/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/pirelli/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/wikipedia/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/postgara/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/postgara/final-standings.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/revisione/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>assets/js/app.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/infografica/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
+<script src="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>modules/grafici/module.js?v=<?= urlencode((string)$appVersion) ?>"></script>
 </body>
 </html>
