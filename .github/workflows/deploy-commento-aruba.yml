@@ -41,6 +41,7 @@ jobs:
           port: 21
           local-dir: ./deploy/
           server-dir: /www.formulapaddock.it/seo/
+          state-name: .ftp-deploy-commento-state.json
           exclude: |
             **/.git*
             **/.git*/**

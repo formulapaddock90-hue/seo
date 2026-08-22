@@ -30,8 +30,8 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $_authConfig = require __DIR__ . '/config.php';
-define('AUTH_USER',     $_authConfig['auth_user']     ?? 'admin');
-define('AUTH_PASSWORD', $_authConfig['auth_password'] ?? 'admin');
+define('AUTH_USER', (string) ($_authConfig['auth_user'] ?? ''));
+define('AUTH_PASSWORD_HASH', (string) ($_authConfig['auth_password_hash'] ?? ''));
 unset($_authConfig);
 
 if (!defined('BASE_PATH')) {
@@ -41,13 +41,35 @@ if (!defined('BASE_PATH')) {
     unset($_bp_docroot, $_bp_dir);
 }
 
+function csrfToken(): string
+{
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verifyCsrf(string $token): bool
+{
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+function safeRedirect(string $redirect): string
+{
+    $default = BASE_PATH . 'index.php';
+    if ($redirect === '' || $redirect[0] !== '/' || str_starts_with($redirect, '//') || preg_match('/[\r\n]/', $redirect)) {
+        return $default;
+    }
+    return $redirect;
+}
+
 /**
  * Verifica che l'utente sia autenticato.
  * Per richieste AJAX/API restituisce JSON 401, altrimenti reindirizza al login.
  */
 function checkAuth(): void
 {
-    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+    if (!isAuthenticated()) {
         $isAjax = (
             (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
             || $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -77,16 +99,19 @@ function handleLogin(): ?array
         return null;
     }
 
-    $user     = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
+    if (!verifyCsrf((string) ($_POST['csrf_token'] ?? ''))) {
+        return ['error' => 'Richiesta non valida.'];
+    }
 
-    if ($user === AUTH_USER && $password === AUTH_PASSWORD) {
+    $user = trim((string) ($_POST['username'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
+
+    if (AUTH_USER !== '' && AUTH_PASSWORD_HASH !== '' && hash_equals(AUTH_USER, $user) && password_verify($password, AUTH_PASSWORD_HASH)) {
         session_regenerate_id(true);
         $_SESSION['authenticated'] = true;
         $_SESSION['login_time']    = time();
 
-        $redirect = $_POST['redirect'] ?? BASE_PATH . 'index.php';
-        header('Location: ' . $redirect);
+        header('Location: ' . safeRedirect((string) ($_POST['redirect'] ?? '')));
         exit;
     }
 
@@ -99,6 +124,10 @@ function handleLogin(): ?array
 function handleLogout(): void
 {
     $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], (bool) $params['secure'], (bool) $params['httponly']);
+    }
     session_destroy();
     header('Location: ' . BASE_PATH . 'login.php');
     exit;
@@ -109,5 +138,7 @@ function handleLogout(): void
  */
 function isAuthenticated(): bool
 {
-    return isset($_SESSION['authenticated']) && $_SESSION['authenticated'] === true;
+    return isset($_SESSION['authenticated'], $_SESSION['login_time'])
+        && $_SESSION['authenticated'] === true
+        && (time() - (int) $_SESSION['login_time']) < 43200;
 }

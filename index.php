@@ -20,8 +20,8 @@ $appVersion = @filemtime(__DIR__ . '/assets/js/app.js') ?: time();
 	<div class="header-inner">
 		<h1>⚡ F1 Content Hub</h1>
 		<div class="header-actions">
-			<a href="<?= BASE_PATH ?>Commento.php" class="btn-settings" title="Commento" style="text-decoration:none">💬</a>
-			<a href="<?= BASE_PATH ?>social.php" class="btn-settings" title="Social" style="text-decoration:none">📣</a>
+			<a href="<?= BASE_PATH ?>commento.php" class="btn-settings" title="Commento" style="text-decoration:none">💬</a>
+			<a href="<?= BASE_PATH ?>social/" class="btn-settings" title="Social" style="text-decoration:none">📣</a>
 			<button type="button" id="open-settings" class="btn-settings" title="Impostazioni">⚙️</button>
 			<a href="<?= BASE_PATH ?>logout.php" class="btn-settings" title="Esci" style="text-decoration:none">🚪</a>
 		</div>
