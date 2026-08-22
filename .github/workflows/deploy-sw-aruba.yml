@@ -1,0 +1,44 @@
+name: Deploy root service worker to Aruba
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "sw.js"
+      - ".github/workflows/deploy-sw-aruba.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-sw-aruba
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare service worker bundle
+        run: |
+          mkdir -p deploy
+          cp sw.js deploy/sw.js
+
+      - name: Deploy sw.js to website root via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./deploy/
+          server-dir: /www.formulapaddock.it/
+          exclude: |
+            **/.git*
+            **/.git*/**
