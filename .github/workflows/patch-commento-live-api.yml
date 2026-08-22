@@ -1,4 +1,4 @@
-name: Patch commento to Live Timing API
+name: Patch commento to Live Timing data
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Connect commento.php directly to Live Timing API
+      - name: Connect commento.php directly to Formula Paddock Live data
         run: |
           python3 <<'PY'
           from pathlib import Path
@@ -26,40 +26,19 @@ jobs:
           path = Path('commento.php')
           text = path.read_text(encoding='utf-8')
 
-          old_loader_start = "async function loadDrivers(){try{const response=await fetch('drivers.json',{cache:'no-store'});"
-          start = text.find(old_loader_start)
-          if start == -1:
-              raise SystemExit('Vecchio loadDrivers non trovato')
-          end_marker = "\n\nfunction escapeHtml"
-          end = text.find(end_marker, start)
-          if end == -1:
-              raise SystemExit('Fine loadDrivers non trovata')
+          old = "https://www.formulapaddock.it/wp-json/undercutf1/v1/update-standings"
+          new = "https://www.formulapaddock.it/live-data.php?t=' + Date.now()"
 
-          new_loader = '''async function loadDrivers(){
-          try{
-              const response=await fetch('https://www.formulapaddock.it/wp-json/undercutf1/v1/update-standings',{cache:'no-store'});
-              if(!response.ok)throw new Error('HTTP '+response.status);
-              const data=await response.json();
-              const rawDrivers=Array.isArray(data?.drivers)?data.drivers:[];
-              driversData=rawDrivers.map(driver=>({
-                  driver_number:driver.driverNumber??driver.carNumber??driver.number??'',
-                  broadcast_name:driver.broadcastName??driver.name??driver.fullName??driver.tla??'',
-                  full_name:driver.fullName??driver.broadcastName??driver.name??driver.tla??'',
-                  first_name:driver.firstName??'',
-                  last_name:driver.lastName??''
-              })).filter(driver=>driver.driver_number!==''||driver.broadcast_name!=='');
-              console.log('Piloti caricati da Live Timing API:',driversData.length);
-          }catch(error){
-              driversData=[];
-              console.error('Errore nel caricamento dei piloti dalla Live Timing API:',error);
-          }
-          }'''
-          text = text[:start] + new_loader + text[end:]
-
-          old_modal = "window.openEventModal=function(eventType){"
-          if old_modal not in text:
-              raise SystemExit('openEventModal non trovato')
-          text = text.replace(old_modal, "window.openEventModal=async function(eventType){await loadDrivers();", 1)
+          if old in text:
+              text = text.replace(
+                  "fetch('" + old + "',{cache:'no-store'})",
+                  "fetch('" + new + "',{cache:'no-store'})",
+                  1
+              )
+          elif "https://www.formulapaddock.it/live-data.php?t=' + Date.now()" in text:
+              print('commento.php è già collegato a live-data.php')
+          else:
+              raise SystemExit('Endpoint standings attuale non trovato in commento.php')
 
           path.write_text(text, encoding='utf-8')
           PY
@@ -73,5 +52,5 @@ jobs:
             echo "Nessuna modifica necessaria"
             exit 0
           fi
-          git commit -m "Connect commento to Live Timing standings API"
+          git commit -m "Connect commento to Formula Paddock Live data"
           git push
