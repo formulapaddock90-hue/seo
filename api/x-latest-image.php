@@ -41,13 +41,29 @@ function xTeamPayload(array $team, string $teamKey): array
 function latestXImageFromPublicTimeline(string $username): array
 {
     $timelineUrl = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' . rawurlencode($username);
-    $response = httpRequest($timelineUrl, 'GET', ['Accept' => 'text/html'], null, 20);
+    $requestHeaders = [
+        'Accept' => 'text/html,application/xhtml+xml',
+        'Accept-Language' => 'it-IT,it;q=0.9,en;q=0.8',
+        'Referer' => 'https://platform.twitter.com/',
+        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36',
+    ];
+    $response = [];
+
+    // Il servizio syndication può rispondere in modo intermittente dagli IP
+    // degli hosting condivisi: ritenta una volta con un query param innocuo.
+    foreach ([$timelineUrl . '?dnt=true', $timelineUrl] as $url) {
+        $response = httpRequest($url, 'GET', $requestHeaders, null, 45);
+        if (($response['status'] ?? 0) === 200 && (string) ($response['body'] ?? '') !== '') {
+            break;
+        }
+    }
+
     if (($response['status'] ?? 0) !== 200) {
-        return [];
+        return ['error' => 'Feed X non raggiungibile dal server (HTTP ' . (int) ($response['status'] ?? 0) . ').'];
     }
 
     if (!preg_match('/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s', (string) ($response['body'] ?? ''), $match)) {
-        return [];
+        return ['error' => 'X ha restituito un feed senza dati utilizzabili.'];
     }
 
     // __NEXT_DATA__ contiene già JSON valido. Decodificare prima le entità HTML
@@ -58,11 +74,11 @@ function latestXImageFromPublicTimeline(string $username): array
         $payload = json_decode(html_entity_decode($match[1], ENT_NOQUOTES | ENT_HTML5, 'UTF-8'), true);
     }
     if (!is_array($payload)) {
-        return [];
+        return ['error' => 'Il feed X ricevuto non è leggibile.'];
     }
     $entries = $payload['props']['pageProps']['timeline']['entries'] ?? [];
     if (!is_array($entries)) {
-        return [];
+        return ['error' => 'Il feed X non contiene post.'];
     }
 
     $images = [];
@@ -94,12 +110,16 @@ function latestXImageFromPublicTimeline(string $username): array
     }
 
     usort($images, static fn(array $a, array $b): int => $b['created_at'] <=> $a['created_at']);
-    return $images[0] ?? [];
+    if ($images === []) {
+        return ['error' => 'Il profilo X non contiene foto pubbliche nel feed disponibile.'];
+    }
+
+    return $images[0];
 }
 
 if ($bearerToken === '') {
     $publicImage = latestXImageFromPublicTimeline($username);
-    if ($publicImage !== []) {
+    if (isset($publicImage['image_url'])) {
         jsonResponse(array_merge(xTeamPayload($team, $teamKey), [
             'ok' => true,
             'found' => true,
@@ -116,7 +136,7 @@ if ($bearerToken === '') {
         'configured' => false,
         'image_url' => null,
         'post_url' => null,
-        'message' => 'Nessuna immagine pubblica trovata per questo team.',
+        'message' => (string) ($publicImage['error'] ?? 'Nessuna immagine pubblica trovata per questo team.'),
     ]));
 }
 
