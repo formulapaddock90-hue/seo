@@ -24,6 +24,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Prepare commento bundle
+        run: |
+          mkdir -p deploy
+          cp commento.php deploy/commento.php
+          # Garantisce che il caricamento dei piloti avvenga prima della creazione del campo.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('deploy/commento.php')
+          s = p.read_text(encoding='utf-8')
+          old = "window.openEventModal=function(eventType){currentEventType=eventType;"
+          new = "window.openEventModal=async function(eventType){await loadDrivers();currentEventType=eventType;"
+          if old in s and new not in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
       - name: Deploy commento.php to Aruba via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
@@ -32,12 +48,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          local-dir: ./
+          local-dir: ./deploy/
           server-dir: /www.formulapaddock.it/seo/
-          state-name: .ftp-deploy-commento-state.json
           exclude: |
-            **
-            !commento.php
-            .git*
-            .git*/**
-            **/.ftp-deploy-commento-state.json
+            **/.git*
+            **/.git*/**
