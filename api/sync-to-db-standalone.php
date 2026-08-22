@@ -5,11 +5,12 @@
  * Oppure: apri nel browser sul server remoto
  */
 
-// Configurazione DB
-$host = '31.11.39.212';
-$db = 'Sql1936639_2';
-$user = 'Sql1936639';
-$pass = '7670i01h35';
+// Configurazione DB privata/condivisa
+require __DIR__ . '/../conn.php';
+$host = $hostname;
+$db = $dbname;
+$user = $username;
+$pass = $password;
 
 // File da sincronizzare
 $file = __DIR__ . '/data/session-results.txt';
@@ -34,7 +35,7 @@ try {
         $pass,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
-    echo "✅ Connessione DB OK (31.11.39.212)\n\n";
+    echo "✅ Connessione DB OK\n\n";
 } catch (Exception $e) {
     echo "❌ Errore connessione: " . $e->getMessage() . "\n";
     exit(1);

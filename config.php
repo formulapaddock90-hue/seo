@@ -48,6 +48,8 @@ return [
     'tiktok_client_secret' => $secret('tiktok_client_secret', 'TIKTOK_CLIENT_SECRET'),
     'threads_client_id' => $secret('threads_client_id', 'THREADS_CLIENT_ID'),
     'threads_client_secret' => $secret('threads_client_secret', 'THREADS_CLIENT_SECRET'),
+    'x_username' => $secret('x_username', 'X_USERNAME', 'paddock_formula'),
+    'x_bearer_token' => $secret('x_bearer_token', 'X_BEARER_TOKEN'),
     'linkedin_client_id' => $secret('linkedin_client_id', 'LINKEDIN_CLIENT_ID'),
     'linkedin_client_secret' => $secret('linkedin_client_secret', 'LINKEDIN_CLIENT_SECRET'),
     'timezone' => 'Europe/Rome',

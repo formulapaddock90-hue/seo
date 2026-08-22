@@ -15,9 +15,6 @@ const FinalStandingsModule = {
      * Inizializza il modulo
      */
     async init() {
-        // Prova a creare la tabella al primo caricamento
-        await this.ensureTableExists();
-
         // Aggancia il pulsante se esiste
         this.attachButtonListener();
 
@@ -149,14 +146,16 @@ const FinalStandingsModule = {
                 })
             });
 
-            const result = await response.json();
-            if (!result.ok) {
-                console.error('❌ Errore salvataggio:', result.error);
+            this.displayStandings(standings);
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.ok) {
+                console.warn('⚠️ Classifica visualizzata ma non salvata:', result.error || `HTTP ${response.status}`);
+                this.setStatus('⚠️ Classifica caricata; archivio DB non disponibile');
                 return;
             }
 
             console.log(`✅ Classifica salvata: ${result.count} posizioni`);
-            this.displayStandings(standings);
 
         } catch (e) {
             console.error('❌ Errore fetch classifica:', e);
