@@ -7,8 +7,6 @@
 $seoConfig = [];
 $seoConfigFile = __DIR__ . '/../config.php';
 if (file_exists($seoConfigFile)) {
-    // Alcune installazioni legacy possono avere output accidentale nel config root.
-    // Non deve mai finire nella risposta HTML/JSON del social tool.
     ob_start();
     try {
         $loadedSeoConfig = require $seoConfigFile;
@@ -21,8 +19,11 @@ if (file_exists($seoConfigFile)) {
 }
 
 return [
-    // ===================== REEL CLOUD ENGINE URL =====================
-    'reel_cloud_url' => 'https://reel-engine-dcnr.onrender.com',
+    // ===================== REEL =====================
+    // Il server hosting non consente exec/proc_open/shell_exec: il Reel viene
+    // renderizzato nel browser e poi caricato a chunk in output/reels.
+    'reel_render_mode' => 'browser',
+    'reel_music_dir' => __DIR__ . '/music',
 
     // ===================== PROVIDER AI =====================
     'ai_provider' => 'gemini',
@@ -82,11 +83,12 @@ return [
     'threads_client_secret'    => $seoConfig['threads_client_secret'] ?? (getenv('THREADS_CLIENT_SECRET') ?: ''),
     'threads_oauth_token_json' => __DIR__ . '/credentials/threads-token.json',
 
+    // Conservato solo per eventuali utility locali/test fuori dall'hosting.
     'ffmpeg_path' => (PHP_OS_FAMILY === 'Windows')
         ? __DIR__ . '/bin/ffmpeg-n7.1-latest-win64-gpl-7.1/bin/ffmpeg.exe'
         : 'ffmpeg',
 
-    // ===================== REEL LOGIC & BRAND =====================
+    // ===================== BRAND & OUTPUT =====================
     'brand_name' => 'FORMULAPADDOCK.IT',
     'brand_color' => '#e10600',
     'brand_logo_url' => 'https://www.formulapaddock.it/wp-content/uploads/2026/05/preview.webp',
