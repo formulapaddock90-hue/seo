@@ -84,9 +84,7 @@ function fpExtractArticleImages(string $url, int $maxImages = 12): array
     }
 
     $encoding = mb_detect_encoding($html, ['UTF-8', 'ISO-8859-1', 'Windows-1252'], true);
-    if ($encoding && $encoding !== 'UTF-8') {
-        $html = mb_convert_encoding($html, 'UTF-8', $encoding);
-    }
+    if ($encoding && $encoding !== 'UTF-8') $html = mb_convert_encoding($html, 'UTF-8', $encoding);
 
     $dom = new DOMDocument();
     libxml_use_internal_errors(true);
@@ -94,7 +92,6 @@ function fpExtractArticleImages(string $url, int $maxImages = 12): array
     libxml_clear_errors();
     $xpath = new DOMXPath($dom);
 
-    // Cerca prima il vero corpo dell'articolo. In fallback usa article/main.
     $queries = [
         '//*[contains(concat(" ", normalize-space(@class), " "), " entry-content ")]//img',
         '//*[contains(concat(" ", normalize-space(@class), " "), " post-content ")]//img',
@@ -178,7 +175,6 @@ function fpImageToDataUrl(string $url): string
     $err = curl_error($ch);
     curl_close($ch);
 
-    // Limite per singola immagine, per non appesantire troppo la pagina di test.
     if ($bytes === false || $err !== '' || $http >= 400 || strlen($bytes) < 1000 || strlen($bytes) > 8 * 1024 * 1024) return '';
 
     $type = strtolower(trim(explode(';', $type)[0] ?? ''));
@@ -190,7 +186,6 @@ function fpImageToDataUrl(string $url): string
     }
     if (!in_array($type, ['image/jpeg', 'image/png', 'image/webp'], true)) return '';
 
-    // Filtra immagini minuscole anche quando width/height non erano presenti nell'HTML.
     $size = @getimagesizefromstring($bytes);
     if (is_array($size) && (($size[0] ?? 0) < 320 || ($size[1] ?? 0) < 180)) return '';
 
@@ -225,8 +220,7 @@ if (fpAllowedArticleUrl($articleUrl)) {
     $articleError = 'Per sicurezza il test accetta solo URL di formulapaddock.it.';
 }
 
-$excerpt = preg_replace('/\s+/u', ' ', $article['text']);
-$excerpt = trim((string)$excerpt);
+$excerpt = trim((string)preg_replace('/\s+/u', ' ', $article['text']));
 if (mb_strlen($excerpt) > 230) $excerpt = rtrim(mb_substr($excerpt, 0, 227)) . '…';
 $imageCount = count($articleImages);
 ?>
@@ -280,7 +274,7 @@ $imageCount = count($articleImages);
 <div>
 <p>Il Reel usa <strong><?= $imageCount ?></strong> immagini, con zoom leggero e dissolvenza. Durata automatica in base al numero di foto, massimo 18 secondi. Output <strong>1080×1920 / 30 fps / 12 Mbps</strong>.</p>
 <button id="generateBtn" type="button" disabled>▶ Genera Reel MP4</button>
-<div class="status" id="renderStatus">In attesa.</div>
+<div class="status" id="renderStatus">Caricamento immagini…</div>
 <div id="resultBox" hidden>
 <p><strong>Anteprima MP4</strong></p>
 <video id="previewVideo" controls playsinline></video>
@@ -308,14 +302,40 @@ const captureOk=typeof canvas.captureStream==='function',recorderOk=typeof windo
 document.getElementById('captureSupport').innerHTML=pill(captureOk);document.getElementById('recorderSupport').innerHTML=pill(recorderOk);
 let chosenMime='';if(recorderOk&&typeof MediaRecorder.isTypeSupported==='function'){chosenMime=mimeCandidates.find(t=>MediaRecorder.isTypeSupported(t))||''}
 document.getElementById('mp4Support').innerHTML=chosenMime?`<span class="pill ok">SUPPORTATO</span><div class="small" style="margin-top:6px"><code>${chosenMime}</code></div>`:'<span class="pill bad">NON SUPPORTATO</span>';
+const browserCompatible=captureOk&&recorderOk&&!!chosenMime;
+compatStatus.innerHTML=browserCompatible?`<span class="ok"><strong>✅ Browser pronto.</strong></span> Useremo <code>${chosenMime}</code>.`:'<span class="bad"><strong>❌ MP4/H.264 non disponibile in questo browser.</strong></span>';
 
-const photos=[];let loadedCount=0;
-function loadPhotos(){return Promise.all(IMAGE_DATA.map((src,index)=>new Promise(resolve=>{const img=new Image();img.onload=()=>{photos[index]=img;loadedCount++;resolve()};img.onerror=()=>resolve();img.src=src}))).then(()=>{const clean=photos.filter(Boolean);photos.length=0;clean.forEach(x=>photos.push(x));});}
+const photos=[];
+async function loadPhotos(){
+    const results=await Promise.all(IMAGE_DATA.map(src=>new Promise(resolve=>{
+        const img=new Image();
+        img.onload=()=>resolve((img.naturalWidth>0&&img.naturalHeight>0)?img:null);
+        img.onerror=()=>resolve(null);
+        img.src=src;
+    })));
+    photos.splice(0,photos.length,...results.filter(img=>img&&img.naturalWidth>0&&img.naturalHeight>0));
+    return photos.length;
+}
 
 function roundRect(x,y,w,h,r,fill,stroke=null,lw=1){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}}
 function wrap(text,maxWidth,font,maxLines=10){ctx.font=font;const words=(text||'').split(/\s+/),lines=[];let cur='';for(const word of words){const test=cur?cur+' '+word:word;if(ctx.measureText(test).width>maxWidth&&cur){lines.push(cur);cur=word;if(lines.length>=maxLines-1)break}else cur=test}if(cur&&lines.length<maxLines)lines.push(cur);return lines}
-function drawCover(img,x,y,w,h,scale=1,alpha=1){const ir=img.width/img.height,br=w/h;let sw,sh,sx,sy;if(ir>br){sh=img.height;sw=sh*br;sx=(img.width-sw)/2;sy=0}else{sw=img.width;sh=sw/br;sx=0;sy=(img.height-sh)/2}const dw=w*scale,dh=h*scale;ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(img,sx,sy,sw,sh,x-(dw-w)/2,y-(dh-h)/2,dw,dh);ctx.restore()}
-function slideshow(progress){if(!photos.length)return false;const count=photos.length;const pos=Math.min(count-0.0001,progress*count);const index=Math.min(count-1,Math.floor(pos));const local=pos-index;const next=Math.min(count-1,index+1);const fade=next!==index?Math.max(0,Math.min(1,(local-.70)/.30)):0;drawCover(photos[index],0,0,1080,1920,1+local*.055,1);if(fade>0)drawCover(photos[next],0,0,1080,1920,1+Math.max(0,local-.70)*.03,fade);return true}
+function drawCover(img,x,y,w,h,scale=1,alpha=1){
+    if(!img||!Number.isFinite(img.naturalWidth)||!Number.isFinite(img.naturalHeight)||img.naturalWidth<=0||img.naturalHeight<=0)return false;
+    const iw=img.naturalWidth,ih=img.naturalHeight,ir=iw/ih,br=w/h;let sw,sh,sx,sy;
+    if(ir>br){sh=ih;sw=sh*br;sx=(iw-sw)/2;sy=0}else{sw=iw;sh=sw/br;sx=0;sy=(ih-sh)/2}
+    const dw=w*scale,dh=h*scale;ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(img,sx,sy,sw,sh,x-(dw-w)/2,y-(dh-h)/2,dw,dh);ctx.restore();return true;
+}
+function slideshow(progress){
+    const valid=photos.filter(img=>img&&img.naturalWidth>0&&img.naturalHeight>0);
+    if(!valid.length)return false;
+    const count=valid.length,pos=Math.min(count-0.0001,Math.max(0,progress)*count),index=Math.min(count-1,Math.max(0,Math.floor(pos)));
+    const current=valid[index]||valid[0];if(!current)return false;
+    const local=pos-index,nextIndex=Math.min(count-1,index+1),next=valid[nextIndex]||current;
+    const fade=nextIndex!==index?Math.max(0,Math.min(1,(local-.70)/.30)):0;
+    if(!drawCover(current,0,0,1080,1920,1+local*.055,1))return false;
+    if(fade>0&&next&&next!==current)drawCover(next,0,0,1080,1920,1+Math.max(0,local-.70)*.03,fade);
+    return true;
+}
 function drawFrame(progress){const w=1080,h=1920;ctx.fillStyle='#08090d';ctx.fillRect(0,0,w,h);if(!slideshow(progress)){const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,'#14090c');g.addColorStop(1,'#050507');ctx.fillStyle=g;ctx.fillRect(0,0,w,h)}
 let shade=ctx.createLinearGradient(0,0,0,h);shade.addColorStop(0,'rgba(0,0,0,.30)');shade.addColorStop(.45,'rgba(0,0,0,.08)');shade.addColorStop(.68,'rgba(0,0,0,.60)');shade.addColorStop(1,'rgba(0,0,0,.96)');ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
 roundRect(48,52,500,82,17,'rgba(0,0,0,.78)','#e10600',4);ctx.fillStyle='#fff';ctx.font='900 36px Arial,sans-serif';ctx.fillText('FORMULAPADDOCK.IT',78,106);
@@ -325,12 +345,9 @@ if(y<1740){ctx.fillStyle='#d5d5dc';const exFont='500 28px Arial,sans-serif';cons
 const cta=Math.max(0,(progress-.78)/.12);ctx.save();ctx.globalAlpha=Math.min(1,cta);roundRect(240,1815,600,62,18,'#e10600');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='900 28px Arial,sans-serif';ctx.fillText('SEGUI FORMULAPADDOCK.IT',540,1856);ctx.restore();ctx.textAlign='left';}
 
 drawFrame(0);
-const compatible=captureOk&&recorderOk&&!!chosenMime&&IMAGE_DATA.length>0;
-compatStatus.innerHTML=(captureOk&&recorderOk&&!!chosenMime)?`<span class="ok"><strong>✅ Browser pronto.</strong></span> Useremo <code>${chosenMime}</code>.`:'<span class="bad"><strong>❌ MP4/H.264 non disponibile in questo browser.</strong></span>';
+loadPhotos().then(count=>{drawFrame(0);if(browserCompatible&&count>0){generateBtn.disabled=false;renderStatus.innerHTML=`<span class="ok"><strong>✅ ${count} immagini realmente caricate.</strong></span> Puoi generare il Reel.`}else if(!count){renderStatus.innerHTML='<span class="bad"><strong>❌ Nessuna immagine valida caricata nel browser.</strong></span>'}}).catch(err=>{renderStatus.innerHTML='<span class="bad"><strong>❌ Errore nel preload immagini:</strong> '+String(err)+'</span>'});
 
-loadPhotos().then(()=>{drawFrame(0);if(compatible&&photos.length>0){generateBtn.disabled=false;renderStatus.innerHTML=`<span class="ok"><strong>✅ ${photos.length} immagini pronte.</strong></span> Puoi generare il Reel.`}else if(!photos.length){renderStatus.innerHTML='<span class="bad"><strong>❌ Nessuna immagine valida caricata.</strong></span>'}});
-
-let objectUrl='';generateBtn.addEventListener('click',async()=>{if(!compatible||!photos.length)return;generateBtn.disabled=true;resultBox.hidden=true;if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=''}const duration=Math.min(18000,Math.max(8000,photos.length*1500+1500));renderStatus.innerHTML=`<span class="warn"><strong>🎬 Rendering in corso…</strong></span> ${photos.length} immagini · ${(duration/1000).toFixed(1)} secondi.`;
+let objectUrl='';generateBtn.addEventListener('click',async()=>{if(!browserCompatible||!photos.length)return;generateBtn.disabled=true;resultBox.hidden=true;if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=''}const duration=Math.min(18000,Math.max(8000,photos.length*1500+1500));renderStatus.innerHTML=`<span class="warn"><strong>🎬 Rendering in corso…</strong></span> ${photos.length} immagini · ${(duration/1000).toFixed(1)} secondi.`;
 const stream=canvas.captureStream(30),chunks=[];let recorder;try{recorder=new MediaRecorder(stream,{mimeType:chosenMime,videoBitsPerSecond:12000000})}catch(e){renderStatus.innerHTML='<span class="bad"><strong>Errore MediaRecorder:</strong> '+e.message+'</span>';generateBtn.disabled=false;return}
 recorder.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};const stopped=new Promise(resolve=>recorder.onstop=resolve);recorder.start(1000);const start=performance.now();
 await new Promise(resolve=>{function frame(now){const p=Math.min(1,(now-start)/duration);drawFrame(p);renderStatus.innerHTML=`<span class="warn"><strong>🎬 Rendering ${(p*100).toFixed(0)}%</strong></span> — foto ${Math.min(photos.length,Math.floor(p*photos.length)+1)}/${photos.length}`;if(p<1)requestAnimationFrame(frame);else resolve()}requestAnimationFrame(frame)});recorder.stop();await stopped;stream.getTracks().forEach(t=>t.stop());
