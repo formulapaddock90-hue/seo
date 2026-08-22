@@ -10,7 +10,9 @@ on:
       - "auth.php"
       - "login.php"
       - "logout.php"
-      - "assets/js/app.js"
+      - "assets/**"
+      - "index.php"
+      - "modules/**"
       - "api/**"
       - ".github/workflows/deploy-api-bridge-aruba.yml"
   workflow_dispatch:
@@ -32,13 +34,15 @@ jobs:
 
       - name: Prepare complete backend bundle
         run: |
-          mkdir -p deploy/api deploy/assets/js
+          mkdir -p deploy/api deploy/assets deploy/modules
           cp config.php deploy/config.php
           cp conn.php deploy/conn.php
           cp auth.php deploy/auth.php
           cp login.php deploy/login.php
           cp logout.php deploy/logout.php
-          cp assets/js/app.js deploy/assets/js/app.js
+          cp index.php deploy/index.php
+          cp -R assets/. deploy/assets/
+          cp -R modules/. deploy/modules/
           cp -R api/. deploy/api/
 
       - name: Deploy API bridge to Aruba via FTPS
