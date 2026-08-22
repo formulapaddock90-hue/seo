@@ -154,6 +154,15 @@ function activateTab(tabId) {
 
 const isStaticEnv = location.hostname.includes('github.io') || location.protocol === 'file:';
 
+function redirectToLoginOnce() {
+    if (window.__fpAuthRedirectInProgress) return;
+    window.__fpAuthRedirectInProgress = true;
+
+    const loginUrl = new URL('login.php', window.location.href);
+    loginUrl.searchParams.set('redirect', window.location.pathname + window.location.search);
+    window.location.replace(loginUrl.toString());
+}
+
 async function apiGet(path) {
     if (isStaticEnv && (path.includes('.php') || path.endsWith('.php'))) {
         return { success: true, categories: [], links: [], pages: [], post_types: [], images: [] };
@@ -162,8 +171,7 @@ async function apiGet(path) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
         if (res.status === 401) {
-            alert("La sessione è scaduta o non è più valida. Verrai reindirizzato alla pagina di login.");
-            window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+            redirectToLoginOnce();
             return new Promise(() => {});
         }
         const parts = [data.error, data.message, data.details]
@@ -187,8 +195,7 @@ async function apiPost(path, payload) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
         if (res.status === 401) {
-            alert("La sessione è scaduta o non è più valida. Verrai reindirizzato alla pagina di login.");
-            window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+            redirectToLoginOnce();
             return new Promise(() => {});
         }
         const detailStr = data.details
@@ -1436,4 +1443,3 @@ document.addEventListener('DOMContentLoaded', () => {
     safeRun(() => initializeReviewArea());
     safeRun(() => initializeModuleB());
 });
-
