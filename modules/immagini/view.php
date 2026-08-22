@@ -28,14 +28,30 @@
     <div style="margin: 18px 0 10px; padding: 16px; background: #101010; border: 1px solid #333; border-radius: 10px;">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
             <div>
-                <h3 style="margin:0 0 4px;">𝕏 Ultima immagine da Twitter</h3>
-                <p class="muted" style="margin:0; font-size:0.82rem;">Recupera l'ultima immagine pubblicata da Formula Paddock e aggiungila alle immagini disponibili per i titoli H2.</p>
+                <h3 style="margin:0 0 4px;">𝕏 Ultima foto dai team</h3>
+                <p class="muted" style="margin:0; font-size:0.82rem;">Scegli un team e aggiungi la sua ultima foto pubblicata su X alle immagini disponibili per i titoli H2.</p>
             </div>
-            <button type="button" id="b-load-x-latest-btn">𝕏 Carica ultima immagine</button>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <select id="b-x-team-select" aria-label="Team Formula 1">
+                    <option value="">Seleziona team...</option>
+                    <option value="mclaren">McLaren</option>
+                    <option value="ferrari">Ferrari</option>
+                    <option value="mercedes">Mercedes</option>
+                    <option value="red-bull">Red Bull Racing</option>
+                    <option value="aston-martin">Aston Martin</option>
+                    <option value="alpine">Alpine</option>
+                    <option value="williams">Williams</option>
+                    <option value="haas">Haas</option>
+                    <option value="racing-bulls">Racing Bulls</option>
+                    <option value="audi">Audi Revolut F1 Team</option>
+                    <option value="cadillac">Cadillac Formula 1 Team</option>
+                </select>
+                <button type="button" id="b-load-x-latest-btn">𝕏 Carica ultima foto</button>
+            </div>
         </div>
         <div id="b-x-latest-status" class="muted" style="margin-top:10px; font-size:0.82rem;"></div>
         <div id="b-x-latest-preview" class="hidden" style="margin-top:12px; max-width:420px;">
-            <img id="b-x-latest-image" alt="Ultima immagine Twitter Formula Paddock" style="display:block; width:100%; height:auto; border-radius:8px; border:1px solid #333;">
+            <img id="b-x-latest-image" alt="Ultima foto pubblicata dal team su X" style="display:block; width:100%; height:auto; border-radius:8px; border:1px solid #333;">
             <a id="b-x-latest-link" href="#" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin-top:7px;">Apri il post su X</a>
         </div>
     </div>

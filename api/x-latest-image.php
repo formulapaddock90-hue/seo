@@ -3,7 +3,40 @@
 require_once __DIR__ . '/bootstrap.php';
 
 $bearerToken = trim((string) ($appConfig['x_bearer_token'] ?? ''));
-$username = trim((string) ($appConfig['x_username'] ?? 'paddock_formula'));
+$teams = [
+    'mclaren' => ['label' => 'McLaren', 'username' => 'McLarenF1'],
+    'ferrari' => ['label' => 'Ferrari', 'username' => 'ScuderiaFerrari'],
+    'mercedes' => ['label' => 'Mercedes', 'username' => 'MercedesAMGF1'],
+    'red-bull' => ['label' => 'Red Bull Racing', 'username' => 'redbullracing'],
+    'aston-martin' => ['label' => 'Aston Martin', 'username' => 'AstonMartinF1'],
+    'alpine' => ['label' => 'Alpine', 'username' => 'AlpineF1Team'],
+    'williams' => ['label' => 'Williams', 'username' => 'WilliamsF1'],
+    'haas' => ['label' => 'Haas', 'username' => 'HaasF1Team'],
+    'racing-bulls' => ['label' => 'Racing Bulls', 'username' => 'visacashapprb'],
+    'audi' => ['label' => 'Audi Revolut F1 Team', 'username' => 'audif1_'],
+    'cadillac' => ['label' => 'Cadillac Formula 1 Team', 'username' => 'Cadillac_F1'],
+];
+$teamKey = strtolower(trim((string) ($_GET['team'] ?? '')));
+
+if (!isset($teams[$teamKey])) {
+    jsonResponse([
+        'ok' => false,
+        'found' => false,
+        'error' => 'Team non valido o non selezionato.',
+    ], 400);
+}
+
+$team = $teams[$teamKey];
+$username = $team['username'];
+
+function xTeamPayload(array $team, string $teamKey): array
+{
+    return [
+        'team' => $teamKey,
+        'team_label' => $team['label'],
+        'username' => $team['username'],
+    ];
+}
 
 function latestXImageFromPublicTimeline(string $username): array
 {
@@ -58,24 +91,24 @@ function latestXImageFromPublicTimeline(string $username): array
 if ($bearerToken === '') {
     $publicImage = latestXImageFromPublicTimeline($username);
     if ($publicImage !== []) {
-        jsonResponse([
+        jsonResponse(array_merge(xTeamPayload($team, $teamKey), [
             'ok' => true,
             'found' => true,
             'configured' => true,
             'source' => 'public_timeline',
             'image_url' => $publicImage['image_url'],
             'post_url' => $publicImage['post_url'],
-        ]);
+        ]));
     }
 
-    jsonResponse([
+    jsonResponse(array_merge(xTeamPayload($team, $teamKey), [
         'ok' => true,
         'found' => false,
         'configured' => false,
         'image_url' => null,
         'post_url' => null,
-        'message' => 'Integrazione X non configurata.',
-    ]);
+        'message' => 'Nessuna immagine pubblica trovata per questo team.',
+    ]));
 }
 
 $headers = ['Authorization' => 'Bearer ' . $bearerToken];
@@ -129,21 +162,21 @@ foreach (($postsPayload['data'] ?? []) as $post) {
         $imageUrl = (string) ($media['url'] ?? $media['preview_image_url'] ?? '');
         if ($imageUrl !== '') {
             $postId = (string) ($post['id'] ?? '');
-            jsonResponse([
+            jsonResponse(array_merge(xTeamPayload($team, $teamKey), [
                 'ok' => true,
                 'found' => true,
                 'configured' => true,
                 'image_url' => $imageUrl,
                 'post_url' => $postId === '' ? null : 'https://x.com/' . rawurlencode($username) . '/status/' . rawurlencode($postId),
-            ]);
+            ]));
         }
     }
 }
 
-jsonResponse([
+jsonResponse(array_merge(xTeamPayload($team, $teamKey), [
     'ok' => true,
     'found' => false,
     'configured' => true,
     'image_url' => null,
     'post_url' => null,
-]);
+]));
