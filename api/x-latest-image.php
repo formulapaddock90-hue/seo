@@ -38,6 +38,48 @@ function xTeamPayload(array $team, string $teamKey): array
     ];
 }
 
+function latestXImageFromFxTwitter(string $username): array
+{
+    $url = 'https://api.fxtwitter.com/2/profile/' . rawurlencode($username) . '/media?count=10';
+    $response = httpRequest($url, 'GET', [
+        'Accept' => 'application/json',
+        'User-Agent' => 'FormulaPaddockContentHub/1.0',
+    ], null, 25);
+
+    if (($response['status'] ?? 0) !== 200) {
+        return ['error' => 'Servizio immagini X non raggiungibile (HTTP ' . (int) ($response['status'] ?? 0) . ').'];
+    }
+
+    $payload = json_decode((string) ($response['body'] ?? ''), true);
+    if (!is_array($payload) || (int) ($payload['code'] ?? 0) !== 200) {
+        return ['error' => 'Il servizio immagini X ha restituito dati non validi.'];
+    }
+
+    foreach (($payload['results'] ?? []) as $post) {
+        if (!is_array($post)) {
+            continue;
+        }
+
+        $photos = $post['media']['photos'] ?? [];
+        if (!is_array($photos) || $photos === []) {
+            $photos = array_values(array_filter(
+                is_array($post['media']['all'] ?? null) ? $post['media']['all'] : [],
+                static fn($media): bool => is_array($media) && ($media['type'] ?? '') === 'photo'
+            ));
+        }
+
+        $imageUrl = (string) ($photos[0]['url'] ?? '');
+        if ($imageUrl !== '') {
+            return [
+                'image_url' => $imageUrl,
+                'post_url' => (string) ($post['url'] ?? ''),
+            ];
+        }
+    }
+
+    return ['error' => 'Il profilo non contiene foto recenti.'];
+}
+
 function latestXImageFromPublicTimeline(string $username): array
 {
     $timelineUrl = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' . rawurlencode($username);
@@ -118,13 +160,18 @@ function latestXImageFromPublicTimeline(string $username): array
 }
 
 if ($bearerToken === '') {
-    $publicImage = latestXImageFromPublicTimeline($username);
+    $publicImage = latestXImageFromFxTwitter($username);
+    $source = 'fxtwitter_media';
+    if (!isset($publicImage['image_url'])) {
+        $publicImage = latestXImageFromPublicTimeline($username);
+        $source = 'public_timeline';
+    }
     if (isset($publicImage['image_url'])) {
         jsonResponse(array_merge(xTeamPayload($team, $teamKey), [
             'ok' => true,
             'found' => true,
             'configured' => true,
-            'source' => 'public_timeline',
+            'source' => $source,
             'image_url' => $publicImage['image_url'],
             'post_url' => $publicImage['post_url'],
         ]));
