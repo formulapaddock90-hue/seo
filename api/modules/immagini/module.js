@@ -929,11 +929,68 @@ async function createNewUploadFolder(folderName) {
     }, 1500);
 }
 
+async function loadLatestXImage() {
+    const btn = document.getElementById('b-load-x-latest-btn');
+    const statusEl = document.getElementById('b-x-latest-status');
+    const previewEl = document.getElementById('b-x-latest-preview');
+    const imageEl = document.getElementById('b-x-latest-image');
+    const linkEl = document.getElementById('b-x-latest-link');
+
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '⏳ Caricamento da X...';
+    if (statusEl) statusEl.textContent = 'Ricerca dell’ultima immagine pubblicata...';
+
+    try {
+        const response = await fetch('api/x-latest-image.php', { cache: 'no-store' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+            throw new Error(data.error || `Errore X (${response.status})`);
+        }
+        if (!data.found || !data.image_url) {
+            throw new Error(data.message || 'Nessuna immagine disponibile su Twitter/X.');
+        }
+
+        const postId = String(data.post_url || '').match(/status\/(\d+)/)?.[1] || Date.now().toString();
+        const token = `img_local_x_${postId}`;
+        const mediaItem = {
+            token,
+            url: String(data.image_url),
+            file: `twitter-${postId}.jpg`,
+            folder: 'Twitter',
+            category: 'Formula Paddock',
+        };
+
+        state.mediaImages = (state.mediaImages || []).filter(img => img.token !== token);
+        state.mediaImages.unshift(mediaItem);
+        ensureCategoriesFromImages();
+        saveCustomImagesToStorage();
+        renderH2Cards();
+        updatePreview();
+
+        if (imageEl) imageEl.src = mediaItem.url;
+        if (linkEl) {
+            linkEl.href = data.post_url || 'https://x.com/paddock_formula';
+            linkEl.style.display = 'inline-block';
+        }
+        previewEl?.classList.remove('hidden');
+        if (statusEl) statusEl.textContent = '✅ Immagine Twitter caricata e disponibile nella selezione H2.';
+    } catch (error) {
+        if (statusEl) statusEl.textContent = `❌ ${error.message}`;
+        previewEl?.classList.add('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '𝕏 Carica ultima immagine';
+    }
+}
+
 function initializeModuleB() {
     loadCustomImagesFromStorage();
     renderBrowserFiles();
     renderH2Cards();
     renderLibraryGallery();
+
+    document.getElementById('b-load-x-latest-btn')?.addEventListener('click', loadLatestXImage);
 
     const info = document.getElementById('b-selected-folder');
     if (info) {
@@ -1111,4 +1168,3 @@ async function downloadFromTeamHubs() {
         }, 3000);
     }
 }
-
