@@ -885,8 +885,14 @@ if (($_GET['action'] ?? '') === 'save-commentary' && ($_GET['debug'] ?? '') === 
             }
         }, 1000);
 
-        window.openEventModal = function(eventType) {
+        window.openEventModal = async function(eventType) {
             currentEventType = eventType;
+
+            // I piloti vengono caricati via fetch: attendi il caricamento prima di creare il select.
+            if (driversData.length === 0) {
+                await loadDrivers();
+            }
+
             const modal = document.getElementById('event-input-modal');
             const title = document.getElementById('event-modal-title');
             const formFields = document.getElementById('event-form-fields');
