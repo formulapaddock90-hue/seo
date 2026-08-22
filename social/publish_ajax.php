@@ -2,7 +2,6 @@
 /**
  * publish_ajax.php — Endpoint AJAX per la pubblicazione su singoli canali social
  */
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -13,23 +12,43 @@ ini_set('display_errors', 0);
 
 $config = require __DIR__ . '/config.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'Metodo non consentito. Richiesto POST.']);
     exit;
 }
 
-$channel = trim($_POST['channel'] ?? '');
-$text    = trim($_POST['text'] ?? '');
-$link    = trim($_POST['link'] ?? '');
-$imageKey = trim($_POST['image_key'] ?? '');
-if ($link === '') {
-    $link = null;
-}
+$channel = trim((string)($_POST['channel'] ?? ''));
+$text = trim((string)($_POST['text'] ?? ''));
+$link = trim((string)($_POST['link'] ?? ''));
+$imageKey = trim((string)($_POST['image_key'] ?? ''));
+if ($link === '') $link = null;
 
 if ($channel === '') {
     echo json_encode(['ok' => false, 'error' => 'Canale social non specificato.']);
     exit;
+}
+
+function currentSocialReel(): string
+{
+    $videoPath = trim((string)($_SESSION['last_social_reel'] ?? ''));
+    $reelSource = trim((string)($_SESSION['last_social_reel_source_url'] ?? ''));
+    $currentSource = trim((string)($_SESSION['last_social_source_url'] ?? ''));
+
+    if ($videoPath === '' || !is_file($videoPath)) {
+        throw new Exception('Il Reel della notizia corrente non è ancora disponibile. Genera e salva prima il Reel.');
+    }
+    if ($reelSource !== $currentSource) {
+        throw new Exception('Il Reel salvato appartiene a una notizia diversa. Rigenera il Reel corrente.');
+    }
+
+    $reelsDir = realpath(__DIR__ . '/output/reels');
+    $realVideo = realpath($videoPath);
+    if ($reelsDir === false || $realVideo === false || !str_starts_with($realVideo, $reelsDir . DIRECTORY_SEPARATOR)) {
+        throw new Exception('Percorso Reel non valido.');
+    }
+
+    return $realVideo;
 }
 
 try {
@@ -37,73 +56,53 @@ try {
 
     switch ($channel) {
         case 'facebook':
-            if (empty($text)) {
-                throw new Exception('Testo post Facebook mancante.');
-            }
+            if ($text === '') throw new Exception('Testo post Facebook mancante.');
 
             $imagePath = '';
             if ($imageKey !== '') {
                 $allowedKeys = ['top3', 'ferrari', 'top10'];
-                if (!in_array($imageKey, $allowedKeys, true)) {
-                    throw new Exception('Infografica Live non riconosciuta.');
-                }
+                if (!in_array($imageKey, $allowedKeys, true)) throw new Exception('Infografica Live non riconosciuta.');
                 $liveImages = $_SESSION['last_live_social_images'] ?? [];
                 $imagePath = (string)($liveImages[$imageKey] ?? '');
             }
-
             if ($imagePath === '') {
                 $images = $_SESSION['last_social_images'] ?? [];
                 $imagePath = $images['hd_image'] ?? ($images['fb_image'] ?? ($images['ig_image'] ?? ''));
             }
-
             if ($imagePath === '' || !file_exists($imagePath)) {
                 throw new Exception('Immagine generata non disponibile. Rigenera prima il contenuto social.');
             }
 
             require_once __DIR__ . '/includes/facebook_page_service.php';
             $res = publishPhotoToFacebookPage($imagePath, $text, $link, $config);
-            $result = [
-                'ok'      => true,
-                'channel' => 'facebook',
-                'image_key' => $imageKey,
-                'message' => 'Post con immagine pubblicato su Facebook tramite Meta API!',
-                'detail'  => $res
-            ];
+            $result = ['ok' => true, 'channel' => 'facebook', 'image_key' => $imageKey, 'message' => 'Post con immagine pubblicato su Facebook tramite Meta API!', 'detail' => $res];
+            break;
+
+        case 'facebook_reel':
+            $videoPath = currentSocialReel();
+            require_once __DIR__ . '/includes/facebook_reels_service.php';
+            $caption = $text !== '' ? $text : 'Formula 1 News #f1 #formula1 #formulapaddock';
+            $res = publishReelToFacebook($videoPath, $caption, $config);
+            $result = ['ok' => true, 'channel' => 'facebook_reel', 'message' => 'Reel pubblicato su Facebook tramite Meta API!', 'detail' => $res];
             break;
 
         case 'twitter':
         case 'x':
-            if (empty($text)) {
-                throw new Exception('Testo post Twitter / X mancante.');
-            }
+            if ($text === '') throw new Exception('Testo post Twitter / X mancante.');
             require_once __DIR__ . '/includes/buffer_service.php';
             $res = publishToBuffer($text, 'twitter', $link, $config);
-            $result = [
-                'ok'      => true,
-                'channel' => 'twitter',
-                'message' => 'Post pubblicato con successo su Twitter / X (Buffer)!',
-                'detail'  => $res
-            ];
+            $result = ['ok' => true, 'channel' => 'twitter', 'message' => 'Post pubblicato con successo su Twitter / X (Buffer)!', 'detail' => $res];
             break;
 
         case 'threads':
-            if (empty($text)) {
-                throw new Exception('Testo post Threads mancante.');
-            }
+            if ($text === '') throw new Exception('Testo post Threads mancante.');
             require_once __DIR__ . '/includes/threads_service.php';
             $res = publishToThreads($text, $link, $config);
-            $result = [
-                'ok'      => true,
-                'channel' => 'threads',
-                'message' => 'Post pubblicato con successo su Threads!',
-                'detail'  => $res
-            ];
+            $result = ['ok' => true, 'channel' => 'threads', 'message' => 'Post pubblicato con successo su Threads!', 'detail' => $res];
             break;
 
         case 'linkedin':
-            if (empty($text)) {
-                throw new Exception('Testo post LinkedIn mancante.');
-            }
+            if ($text === '') throw new Exception('Testo post LinkedIn mancante.');
             $res = null;
             try {
                 require_once __DIR__ . '/includes/buffer_service.php';
@@ -113,56 +112,31 @@ try {
                     require_once __DIR__ . '/includes/linkedin_service.php';
                     $res = publishToLinkedIn($text, $link, $config);
                 } else {
-                    throw new Exception("LinkedIn non configurato: " . $eBuffer->getMessage());
+                    throw new Exception('LinkedIn non configurato: ' . $eBuffer->getMessage());
                 }
             }
-
-            $result = [
-                'ok'      => true,
-                'channel' => 'linkedin',
-                'message' => 'Post pubblicato con successo su LinkedIn!',
-                'detail'  => $res
-            ];
+            $result = ['ok' => true, 'channel' => 'linkedin', 'message' => 'Post pubblicato con successo su LinkedIn!', 'detail' => $res];
             break;
 
         case 'tiktok':
-            $videoPath = trim($_POST['video_path'] ?? '');
-            if ($videoPath === '' || !file_exists($videoPath)) {
-                $reelsDir = $config['output_reels_dir'] ?? (__DIR__ . '/output/reels');
-                $files = glob($reelsDir . '/*.mp4');
-                if (!empty($files)) {
-                    usort($files, fn($a, $b) => filemtime($b) - filemtime($a));
-                    $videoPath = $files[0];
-                }
-            }
-
-            if (empty($videoPath) || !file_exists($videoPath)) {
-                throw new Exception('Nessun video Reel MP4 trovato per la pubblicazione su TikTok. Registralo prima nel Reel Engine.');
-            }
-
+            $videoPath = currentSocialReel();
             require_once __DIR__ . '/includes/tiktok_service.php';
-            $caption = !empty($text) ? $text : 'Formula 1 News #f1';
+            $caption = $text !== '' ? $text : 'Formula 1 News #f1 #formula1 #formulapaddock';
             $res = publishReelToTikTok($videoPath, $caption, $config);
-
-            $result = [
-                'ok'      => true,
-                'channel' => 'tiktok',
-                'message' => 'Video inviato con successo a TikTok!',
-                'detail'  => $res
-            ];
+            $result = ['ok' => true, 'channel' => 'tiktok', 'message' => 'Reel corrente inviato con successo a TikTok!', 'detail' => $res];
             break;
 
         default:
             throw new Exception("Canale social '{$channel}' non riconosciuto.");
     }
 
-    echo json_encode($result);
+    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 } catch (Throwable $e) {
     http_response_code(400);
     echo json_encode([
-        'ok'      => false,
+        'ok' => false,
         'channel' => $channel,
-        'error'   => $e->getMessage()
-    ]);
+        'error' => $e->getMessage(),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
