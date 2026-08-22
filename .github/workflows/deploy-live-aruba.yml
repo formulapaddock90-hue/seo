@@ -34,13 +34,15 @@ jobs:
 
           source = Path('live.html').read_text(encoding='utf-8')
           needle = '<script src="/wp-content/plugins/undercut-f1-standings/assets/dashboard.js?v=2.0" defer></script>'
-          guard = '<script src="/live-refresh-guard.js?v=2.1" defer></script>'
+          guard = '<script src="/live-refresh-guard.js?v=2.2" defer></script>'
 
           if needle not in source:
               raise SystemExit('dashboard.js tag non trovato in live.html')
 
-          if guard not in source:
-              source = source.replace(needle, guard + '\n    ' + needle, 1)
+          # Elimina eventuali versioni precedenti del guard dalla copia da pubblicare.
+          import re
+          source = re.sub(r'\s*<script src="/live-refresh-guard\.js\?v=[^"]+" defer></script>\s*', '\n    ', source)
+          source = source.replace(needle, guard + '\n    ' + needle, 1)
 
           Path('deploy/live.html').write_text(source, encoding='utf-8')
           PY
