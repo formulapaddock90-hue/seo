@@ -158,7 +158,7 @@ function redirectToLoginOnce() {
     if (window.__fpAuthRedirectInProgress) return;
     window.__fpAuthRedirectInProgress = true;
 
-    const loginUrl = new URL('login.php', window.location.href);
+    const loginUrl = new URL('../utility/login.php', window.location.href);
     loginUrl.searchParams.set('redirect', window.location.pathname + window.location.search);
     window.location.replace(loginUrl.toString());
 }
