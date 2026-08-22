@@ -6,15 +6,12 @@ on:
       - main
     paths:
       - "config.php"
+      - "conn.php"
       - "auth.php"
       - "login.php"
       - "logout.php"
       - "assets/js/app.js"
-      - "api/bootstrap.php"
-      - "api/settings.php"
-      - "api/live-social-context.php"
-      - "api/upload-json.php"
-      - "api/api/upload-json.php"
+      - "api/**"
       - ".github/workflows/deploy-api-bridge-aruba.yml"
   workflow_dispatch:
 
@@ -33,19 +30,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare minimal backend bundle
+      - name: Prepare complete backend bundle
         run: |
-          mkdir -p deploy/api deploy/api/api deploy/assets/js
+          mkdir -p deploy/api deploy/assets/js
           cp config.php deploy/config.php
+          cp conn.php deploy/conn.php
           cp auth.php deploy/auth.php
           cp login.php deploy/login.php
           cp logout.php deploy/logout.php
           cp assets/js/app.js deploy/assets/js/app.js
-          cp api/bootstrap.php deploy/api/bootstrap.php
-          cp api/settings.php deploy/api/settings.php
-          cp api/live-social-context.php deploy/api/live-social-context.php
-          cp api/upload-json.php deploy/api/upload-json.php
-          cp api/api/upload-json.php deploy/api/api/upload-json.php
+          cp -R api/. deploy/api/
 
       - name: Deploy API bridge to Aruba via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
@@ -63,3 +57,5 @@ jobs:
             **/.git*/**
             **/private.php
             **/.env*
+            **/credentials/**
+            **/output/**
