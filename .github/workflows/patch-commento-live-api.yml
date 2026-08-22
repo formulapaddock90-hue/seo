@@ -1,0 +1,77 @@
+name: Patch commento to Live Timing API
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/patch-commento-live-api.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Connect commento.php directly to Live Timing API
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('commento.php')
+          text = path.read_text(encoding='utf-8')
+
+          old_loader_start = "async function loadDrivers(){try{const response=await fetch('drivers.json',{cache:'no-store'});"
+          start = text.find(old_loader_start)
+          if start == -1:
+              raise SystemExit('Vecchio loadDrivers non trovato')
+          end_marker = "\n\nfunction escapeHtml"
+          end = text.find(end_marker, start)
+          if end == -1:
+              raise SystemExit('Fine loadDrivers non trovata')
+
+          new_loader = '''async function loadDrivers(){
+          try{
+              const response=await fetch('https://www.formulapaddock.it/wp-json/undercutf1/v1/update-standings',{cache:'no-store'});
+              if(!response.ok)throw new Error('HTTP '+response.status);
+              const data=await response.json();
+              const rawDrivers=Array.isArray(data?.drivers)?data.drivers:[];
+              driversData=rawDrivers.map(driver=>({
+                  driver_number:driver.driverNumber??driver.carNumber??driver.number??'',
+                  broadcast_name:driver.broadcastName??driver.name??driver.fullName??driver.tla??'',
+                  full_name:driver.fullName??driver.broadcastName??driver.name??driver.tla??'',
+                  first_name:driver.firstName??'',
+                  last_name:driver.lastName??''
+              })).filter(driver=>driver.driver_number!==''||driver.broadcast_name!=='');
+              console.log('Piloti caricati da Live Timing API:',driversData.length);
+          }catch(error){
+              driversData=[];
+              console.error('Errore nel caricamento dei piloti dalla Live Timing API:',error);
+          }
+          }'''
+          text = text[:start] + new_loader + text[end:]
+
+          old_modal = "window.openEventModal=function(eventType){"
+          if old_modal not in text:
+              raise SystemExit('openEventModal non trovato')
+          text = text.replace(old_modal, "window.openEventModal=async function(eventType){await loadDrivers();", 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit patched commento.php
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add commento.php
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica necessaria"
+            exit 0
+          fi
+          git commit -m "Connect commento to Live Timing standings API"
+          git push
