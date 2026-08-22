@@ -73,25 +73,25 @@ body{font-family:Inter,sans-serif}.event-btn{transition:all .3s;display:flex;fle
 <script>
 let commentaryData=[];let currentEventType=null;let driversData=[];
 
-// Carica i piloti in modo robusto. Alcune versioni di drivers.json contengono
-// un array JSON serializzato come stringa: gestiamo entrambi i formati.
+// Carica i piloti direttamente dalla pagina Live di Formula Paddock.
+// La pagina viene letta come HTML e i dati piloti vengono estratti dal DOM.
 async function loadDrivers(){
 try{
-    const response=await fetch('https://www.formulapaddock.it/live-data.php?t=' + Date.now()',{cache:'no-store'});
+    const response=await fetch('https://www.formulapaddock.it/live?t=' + Date.now(),{cache:'no-store'});
     if(!response.ok)throw new Error('HTTP '+response.status);
-    const data=await response.json();
-    const rawDrivers=Array.isArray(data?.drivers)?data.drivers:[];
-    driversData=rawDrivers.map(driver=>({
-        driver_number:driver.driverNumber??driver.carNumber??driver.number??'',
-        broadcast_name:driver.broadcastName??driver.name??driver.fullName??driver.tla??'',
-        full_name:driver.fullName??driver.broadcastName??driver.name??driver.tla??'',
-        first_name:driver.firstName??'',
-        last_name:driver.lastName??''
-    })).filter(driver=>driver.driver_number!==''||driver.broadcast_name!=='');
-    console.log('Piloti caricati da Live Timing API:',driversData.length);
+    const html=await response.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const candidates=[];
+    doc.querySelectorAll('[data-driver-number],[data-driver],[data-pilota],.driver,.driver-name,.driver-card').forEach(el=>{
+        const text=(el.textContent||'').replace(/\s+/g,' ').trim();
+        if(text)candidates.push(text);
+    });
+    const unique=Array.from(new Set(candidates));
+    driversData=unique.map((name,index)=>({driver_number:String(index+1),broadcast_name:name,full_name:name,first_name:'',last_name:''}));
+    console.log('Piloti caricati direttamente da Formula Paddock Live:',driversData.length);
 }catch(error){
     driversData=[];
-    console.error('Errore nel caricamento dei piloti dalla Live Timing API:',error);
+    console.error('Errore nel caricamento dei piloti da /live:',error);
 }
 }
 
@@ -107,12 +107,17 @@ window.openEventModal=async function(eventType){await loadDrivers();currentEvent
 
 window.saveEvent=function(){if(!currentEventType)return;const eventData={tipo:currentEventType,timestamp:new Date().toISOString(),tempo_gara:document.getElementById('comm-timer-display').textContent};if(currentEventType!=='sorpasso')eventData.pilota=document.getElementById('pilota')?.value||'';eventData.minuto_giro=document.getElementById('tempo')?.value||'';eventData.commento=document.getElementById('commento')?.value||'';if(['giro-veloce-assoluto','giro-veloce-personale','giro-normale','pit-stop'].includes(currentEventType))eventData.pneumatico=document.getElementById('pneumatico')?.value||'';if(currentEventType==='sorpasso'){eventData.pilota_sorpassa=document.getElementById('pilota-sorpassa')?.value||'';eventData.pilota_sorpassato=document.getElementById('pilota-sorpassato')?.value||'';}commentaryData.push(eventData);localStorage.setItem('commentaryData',JSON.stringify(commentaryData));persistCommentary();updateCommentaryFeed();document.getElementById('event-input-modal').classList.add('hidden');currentEventType=null;};
 
-function updateCommentaryFeed(){const feed=document.getElementById('commentary-feed');if(!commentaryData.length){feed.innerHTML='<div class="text-center text-slate-500 mt-8"><p class="text-sm font-bold">Pronto per il Commentary</p></div>';return;}feed.innerHTML=commentaryData.map((event,index)=>{const realIndex=commentaryData.length-1-index;let pilotaInfo='';if(event.tipo==='sorpasso')pilotaInfo=`<span class="font-bold">${escapeHtml(event.pilota_sorpassa)}</span> sorpassa <span class="font-bold">${escapeHtml(event.pilota_sorpassato)}</span>`;else if(event.pilota)pilotaInfo=`<span class="font-bold">${escapeHtml(event.pilota)}</span>`;const pneumaticoInfo=event.pneumatico?`<span class="text-xs bg-slate-700 px-2 py-1 rounded-lg">${escapeHtml(event.pneumatico)}</span>`:'';return `<div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4"><div class="flex items-start justify-between mb-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center"><i class="fa-solid ${eventIcons[event.tipo]||'fa-note-sticky text-slate-300'}"></i></div><div><div class="flex flex-wrap items-center gap-2 mb-1"><h4 class="font-bold text-white text-sm">${escapeHtml(eventTitles[event.tipo]||'Evento')}</h4>${pneumaticoInfo}<span class="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">${escapeHtml(event.tempo_gara)}</span></div><div class="text-xs text-slate-300">${pilotaInfo}${event.minuto_giro?`<span class="text-slate-400"> • ${escapeHtml(event.minuto_giro)}</span>`:''}</div></div></div><button onclick="deleteEvent(${realIndex})" class="text-slate-500 w-8 h-8"><i class="fa-solid fa-trash text-xs"></i></button></div><p class="text-xs text-slate-200 break-words leading-relaxed">${escapeHtml(event.commento)}</p></div>`;}).reverse().join('');}
-window.deleteEvent=function(index){if(confirm('Eliminare questo evento?')){commentaryData.splice(index,1);localStorage.setItem('commentaryData',JSON.stringify(commentaryData));persistCommentary();updateCommentaryFeed();}};
-window.confirmReset=function(){if(confirm('Sei sicuro di voler resettare la sessione? Tutti i dati verranno persi.')){commentaryData=[];localStorage.removeItem('commentaryData');persistCommentary();updateCommentaryFeed();}};
-window.importCommentary=async function(){if(!commentaryData.length){alert('Nessun evento da esportare!');return;}const result=await persistCommentary();alert(result?.success?`JSON creato: ${result.file}`:'Errore nella creazione del JSON.');};
-async function persistCommentary(){try{const body=new URLSearchParams();body.set('commentary',JSON.stringify(commentaryData));const response=await fetch('commento.php?action=save-commentary',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString()});if(!response.ok)return null;return await response.json();}catch(error){console.error('Errore nel salvataggio del commentary:',error);return null;}}
-let timerInterval=null,timerRunning=false,timerMs=0,timerStartTime=null;function formatTime(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}function updateTimerDisplay(){document.getElementById('comm-timer-display').textContent=formatTime(timerMs);}function updateTimer(){if(timerRunning&&timerStartTime){const now=Date.now();timerMs+=now-timerStartTime;timerStartTime=now;updateTimerDisplay();}}window.toggleCommTimer=function(){if(timerRunning){clearInterval(timerInterval);timerRunning=false;}else{timerRunning=true;timerStartTime=Date.now();timerInterval=setInterval(updateTimer,50);}document.getElementById('timer-play-icon').className=timerRunning?'fa-solid fa-pause':'fa-solid fa-play';};window.resetCommTimer=function(){clearInterval(timerInterval);timerInterval=null;timerRunning=false;timerMs=0;timerStartTime=null;updateTimerDisplay();document.getElementById('timer-play-icon').className='fa-solid fa-play';};
+function updateCommentaryFeed(){const feed=document.getElementById('commentary-feed');if(!commentaryData.length){feed.innerHTML='<div class="text-center text-slate-500 mt-8"><p class="text-sm font-bold">Pronto per il Commentary</p></div>';return;}feed.innerHTML=commentaryData.map((event,index)=>`<div class="bg-slate-900 border border-white/10 rounded-xl p-4"><div class="flex justify-between"><span class="font-bold text-white">${escapeHtml(eventTitles[event.tipo]||event.tipo)}</span><button onclick="window.deleteEvent(${index})" class="text-slate-500">×</button></div><div class="text-sm text-slate-300 mt-2">${escapeHtml(event.pilota||event.pilota_sorpassa||'')}${event.pilota_sorpassato?' → '+escapeHtml(event.pilota_sorpassato):''}</div><div class="text-xs text-slate-500 mt-1">${escapeHtml(event.minuto_giro||'')} ${escapeHtml(event.commento||'')}</div></div>`).join('');}
 
-document.addEventListener('DOMContentLoaded',async()=>{await loadDrivers();const saved=localStorage.getItem('commentaryData');if(saved){try{commentaryData=JSON.parse(saved)||[];}catch(e){commentaryData=[];}updateCommentaryFeed();}});
-</script></body></html>
+window.deleteEvent=function(index){commentaryData.splice(index,1);localStorage.setItem('commentaryData',JSON.stringify(commentaryData));persistCommentary();updateCommentaryFeed();};
+function persistCommentary(){fetch('?action=save-commentary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({commentary:commentaryData})}).catch(error=>console.error('Errore salvataggio commentary:',error));}
+window.importCommentary=function(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>{const file=input.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);commentaryData=Array.isArray(data)?data:(Array.isArray(data?.commentary)?data.commentary:[]);localStorage.setItem('commentaryData',JSON.stringify(commentaryData));updateCommentaryFeed();}catch(error){console.error('Importazione commentary non valida:',error);}};reader.readAsText(file);};input.click();};
+window.confirmReset=function(){if(confirm('Azzerare il commentary?')){commentaryData=[];localStorage.removeItem('commentaryData');persistCommentary();updateCommentaryFeed();}};
+let commTimerSeconds=0;let commTimerInterval=null;
+window.toggleCommTimer=function(){if(commTimerInterval){clearInterval(commTimerInterval);commTimerInterval=null;document.getElementById('timer-play-icon').className='fa-solid fa-play';}else{commTimerInterval=setInterval(()=>{commTimerSeconds++;const h=String(Math.floor(commTimerSeconds/3600)).padStart(2,'0');const m=String(Math.floor((commTimerSeconds%3600)/60)).padStart(2,'0');const s=String(commTimerSeconds%60).padStart(2,'0');document.getElementById('comm-timer-display').textContent=`${h}:${m}:${s}`;},1000);document.getElementById('timer-play-icon').className='fa-solid fa-pause';}};
+window.resetCommTimer=function(){if(commTimerInterval){clearInterval(commTimerInterval);commTimerInterval=null;}commTimerSeconds=0;document.getElementById('comm-timer-display').textContent='00:00:00';document.getElementById('timer-play-icon').className='fa-solid fa-play';};
+try{commentaryData=JSON.parse(localStorage.getItem('commentaryData')||'[]');}catch(error){commentaryData=[];}
+updateCommentaryFeed();
+</script>
+</body>
+</html>
