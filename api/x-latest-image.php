@@ -50,7 +50,16 @@ function latestXImageFromPublicTimeline(string $username): array
         return [];
     }
 
-    $payload = json_decode(html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
+    // __NEXT_DATA__ contiene già JSON valido. Decodificare prima le entità HTML
+    // può trasformare &quot; presenti nei tweet in virgolette non sottoposte a
+    // escaping e rendere il JSON invalido per alcuni profili.
+    $payload = json_decode(trim($match[1]), true);
+    if (!is_array($payload)) {
+        $payload = json_decode(html_entity_decode($match[1], ENT_NOQUOTES | ENT_HTML5, 'UTF-8'), true);
+    }
+    if (!is_array($payload)) {
+        return [];
+    }
     $entries = $payload['props']['pageProps']['timeline']['entries'] ?? [];
     if (!is_array($entries)) {
         return [];
