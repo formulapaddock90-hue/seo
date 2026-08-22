@@ -4,6 +4,9 @@
 // config/private.php e' ignorato da Git e non deve essere pubblicato.
 return [
     'auth_user' => 'admin',
+    // Preferito: risultato di password_hash('la-tua-password', PASSWORD_DEFAULT).
+    'auth_password_hash' => '',
+    // Solo compatibilità con installazioni esistenti; migrare appena possibile.
     'auth_password' => '',
 
     'gemini_api_key' => '',
