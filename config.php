@@ -15,11 +15,22 @@ $settingsFile = __DIR__ . '/storage/settings.json';
 $savedSettings = is_file($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?? []) : [];
 $geminiApiKey = !empty($savedSettings['gemini_api_key']) ? (string) $savedSettings['gemini_api_key'] : $secret('gemini_api_key', 'GEMINI_API_KEY');
 $geminiModelUrl = !empty($savedSettings['gemini_model_url']) ? (string) $savedSettings['gemini_model_url'] : 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
+$authPasswordHash = $secret('auth_password_hash', 'SEO_AUTH_PASSWORD_HASH');
+
+// Compatibilità temporanea con i server configurati prima del passaggio agli hash.
+// La password in chiaro resta nel file privato e non viene mai restituita.
+if ($authPasswordHash === '') {
+    $legacyAuthPassword = $secret('auth_password', 'SEO_AUTH_PASSWORD');
+    if ($legacyAuthPassword !== '') {
+        $authPasswordHash = password_hash($legacyAuthPassword, PASSWORD_DEFAULT);
+    }
+    unset($legacyAuthPassword);
+}
 
 return [
     // Authentication must be explicitly configured; never fall back to a known username/password.
     'auth_user' => $secret('auth_user', 'SEO_AUTH_USER'),
-    'auth_password_hash' => $secret('auth_password_hash', 'SEO_AUTH_PASSWORD_HASH'),
+    'auth_password_hash' => $authPasswordHash,
     'gemini_api_key' => $geminiApiKey,
     'gemini_model_url' => $geminiModelUrl,
     'gemini_models' => [
