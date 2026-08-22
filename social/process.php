@@ -18,7 +18,6 @@ require_once __DIR__ . '/includes/live_image_generator.php';
 require_once __DIR__ . '/includes/google_service.php';
 
 $config = require __DIR__ . '/config.php';
-$cloudUrl = $config['reel_cloud_url'] ?? 'https://reel-engine-dcnr.onrender.com';
 
 function requestExpectsJson(): bool
 {
@@ -32,13 +31,7 @@ function requestExpectsJson(): bool
     if (strpos($contentType, 'application/json') !== false) return true;
     if (strpos($accept, 'application/json') !== false) return true;
     if ($requestedWith === 'xmlhttprequest') return true;
-
-    // fetch() usa normalmente Sec-Fetch-Dest: empty sia in GET che in POST.
-    // Una navigazione classica del browser usa invece Sec-Fetch-Dest: document.
     if ($fetchDest === 'empty') return true;
-
-    // Fallback per browser/proxy che non inoltrano Sec-Fetch-Dest:
-    // fetch() usa tipicamente Accept: */*, mentre la navigazione HTML accetta text/html.
     if ($accept !== '' && strpos($accept, 'text/html') === false) return true;
 
     return false;
@@ -46,7 +39,6 @@ function requestExpectsJson(): bool
 
 function jsonResponse(array $payload, int $status = 200): void
 {
-    // Elimina qualunque output accidentale precedente che renderebbe il JSON non valido.
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
@@ -241,28 +233,37 @@ try {
 
         if (!empty($content['facebook'])) {
             try {
-                $resFb = publishToBuffer($content['facebook'], 'facebook', $linkToPublish, $config);
+                publishToBuffer($content['facebook'], 'facebook', $linkToPublish, $config);
                 $modeLabel = ($config['buffer_share_mode'] ?? 'shareNow') === 'shareNow' ? 'Pubblicato ORA' : 'Inviato in coda';
                 $bufferResults[] = "Facebook (Buffer): {$modeLabel}";
             } catch (Throwable $e) {
-                $bufferErrors[] = "Buffer Facebook: " . $e->getMessage();
+                $bufferErrors[] = 'Buffer Facebook: ' . $e->getMessage();
             }
         }
 
         if (!empty($content['twitter'])) {
             try {
-                $resTw = publishToBuffer($content['twitter'], 'twitter', $linkToPublish, $config);
+                publishToBuffer($content['twitter'], 'twitter', $linkToPublish, $config);
                 $modeLabel = ($config['buffer_share_mode'] ?? 'shareNow') === 'shareNow' ? 'Pubblicato ORA' : 'Inviato in coda';
                 $bufferResults[] = "Twitter/X (Buffer): {$modeLabel}";
             } catch (Throwable $e) {
-                $bufferErrors[] = "Buffer Twitter: " . $e->getMessage();
+                $bufferErrors[] = 'Buffer Twitter: ' . $e->getMessage();
             }
         }
     }
 
-    $reelTargetUrl = $cloudUrl . '/?url=' . urlencode($sourceUrl !== '' ? $sourceUrl : 'https://www.formulapaddock.it');
+    // Ogni nuova notizia invalida il Reel precedente: niente fallback su vecchi MP4.
+    unset(
+        $_SESSION['last_social_reel'],
+        $_SESSION['last_social_reel_url'],
+        $_SESSION['last_social_reel_source_url'],
+        $_SESSION['last_social_reel_saved_at'],
+        $_SESSION['last_social_reel_drive']
+    );
+    $_SESSION['reel_upload_csrf'] = bin2hex(random_bytes(24));
 
-    // Salvataggio in sessione per output/publish_ajax
+    // Salvataggio in sessione per output/reel_builder/publish_ajax
+    $_SESSION['last_social_slug'] = $slug;
     $_SESSION['last_social_content'] = $content;
     $_SESSION['last_social_images'] = $images;
     $_SESSION['last_social_title'] = $title;
@@ -278,13 +279,18 @@ try {
     $_SESSION['last_live_social_images'] = $liveImages;
     $_SESSION['last_live_social_drive'] = $liveDrive;
 
+    $reelBuilderUrl = 'reel_builder.php?embed=1';
+    if ($sourceUrl !== '') {
+        $reelBuilderUrl .= '&url=' . rawurlencode($sourceUrl);
+    }
+
     if ($expectsJson) {
         jsonResponse([
             'ok' => true,
             'title' => $title,
             'source_url' => $sourceUrl,
             'content' => $content,
-            'reel_url' => $reelTargetUrl,
+            'reel_url' => $reelBuilderUrl,
             'redirect' => ($liveContext && $liveImages) ? 'output-live.php' : 'output.php',
             'live' => (bool)($liveContext && $liveImages),
             'drive' => [
@@ -299,7 +305,6 @@ try {
         ]);
     }
 
-    // In modalità Live apre il pannello dedicato con le tre infografiche.
     if ($liveContext && $liveImages) {
         require __DIR__ . '/output-live.php';
     } else {
