@@ -974,8 +974,15 @@ async function loadLatestXImage() {
         state.mediaImages.unshift(mediaItem);
         ensureCategoriesFromImages();
         saveCustomImagesToStorage();
+
+        const firstAvailableH2 = state.reviewH2Titles.findIndex((_, idx) => !state.h2ImageMap[String(idx)]);
+        if (firstAvailableH2 >= 0) {
+            state.h2ImageMap[String(firstAvailableH2)] = token;
+        }
+
         renderH2Cards();
         updatePreview();
+        queueAutoSave();
 
         if (imageEl) imageEl.src = mediaItem.url;
         if (linkEl) {
@@ -983,7 +990,11 @@ async function loadLatestXImage() {
             linkEl.style.display = 'inline-block';
         }
         previewEl?.classList.remove('hidden');
-        if (statusEl) statusEl.textContent = `✅ Ultima foto di ${teamLabel} caricata e disponibile nella selezione H2.`;
+        if (statusEl) {
+            statusEl.textContent = firstAvailableH2 >= 0
+                ? `✅ Ultima foto di ${teamLabel} inserita automaticamente nell’H2 ${firstAvailableH2 + 1}.`
+                : `✅ Ultima foto di ${teamLabel} caricata. Tutti gli H2 hanno già un’immagine.`;
+        }
     } catch (error) {
         if (statusEl) statusEl.textContent = `❌ ${error.message}`;
         previewEl?.classList.add('hidden');
